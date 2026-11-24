@@ -52,7 +52,7 @@ dialog{background:var(--s1);color:var(--tx);border:1px solid var(--ln);border-ra
   <section class="g k" id="kpi"></section>
   <section class="g g2">
     <div class="card"><h2>Tren bulanan</h2><p class="mu sm">Jumlah sampel MS dan TMS per bulan, garis = persentase TMS (tidak terpengaruh filter periode)</p><div class="ch"><canvas id="cT"></canvas></div></div>
-    <div class="card"><h2>Ringkasan per matriks</h2><p class="mu sm">Proporsi mutu dan waktu uji (TAT) per jenis sampel</p><div class="tw"><table id="tM"></table></div></div>
+    <div class="card"><h2>Ringkasan per matriks</h2><p class="mu sm">Proporsi mutu dan waktu uji (TAT, hari kerja) per jenis sampel</p><div class="tw"><table id="tM"></table></div></div>
   </section>
   <section class="g g3">
     <div class="card"><h2>Sebaran wilayah</h2><p class="mu sm">Klik titik untuk memfilter seluruh dasbor. Posisi perkiraan ibu kota kab/kota, bukan batas wilayah.</p>
@@ -68,7 +68,7 @@ dialog{background:var(--s1);color:var(--tx);border:1px solid var(--ln);border-ra
     <div class="ctl" style="justify-content:space-between"><div><h2>Daftar sampel</h2><p class="mu sm" id="tc"></p></div>
       <div class="ctl"><select id="tF" aria-label="Saring tabel"><option value="ALL">Semua sampel</option><option value="TMS">Hanya TMS</option><option value="MS">Hanya MS</option><option value="EST">Hasil estimasi otomatis</option><option value="DQ">Tanggal perlu dicek</option><option value="PEND">Belum diuji</option></select>
       <input type="search" id="q" placeholder="Cari no. sampel, SPPC, lokasi" aria-label="Cari"><button class="btn" id="csv">Unduh CSV</button></div></div>
-    <div class="tw"><table><thead><tr><th>No. sampel</th><th>SPPC</th><th>Periode</th><th>Matriks</th><th>Lokasi</th><th>Masuk → keluar</th><th>TAT</th><th>Hasil</th><th>Parameter melewati baku mutu</th></tr></thead><tbody id="tb"></tbody></table></div>
+    <div class="tw"><table><thead><tr><th>No. sampel</th><th>SPPC</th><th>Periode</th><th>Matriks</th><th>Lokasi</th><th>Masuk → keluar</th><th>TAT (hari kerja)</th><th>Hasil</th><th>Parameter melewati baku mutu</th></tr></thead><tbody id="tb"></tbody></table></div>
   </section>
 </main>
 <dialog id="dg"><div class="ctl" style="justify-content:space-between;align-items:start"><div><h2 id="dt"></h2><p class="mu sm" id="ds"></p></div><button class="btn" onclick="dg.close()">Tutup</button></div><p class="sm" id="dn" style="margin-top:8px"></p><div class="pg" id="dp"></div></dialog>
@@ -81,6 +81,10 @@ const GEO={'Palembang':[-2.99,104.76],'Banyuasin':[-2.65,104.45],'Musi Banyuasin
 let R=D.records,TV=[],CH={};
 const cv=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const inL=(r,l)=>l==='ALL'||r.l===l||(l==='@LUAR'&&C.luar.includes(r.l));
+/* TAT hari kerja: Sabtu/Minggu tidak dihitung, hari masuk tidak dihitung.
+   Isi LIBUR dengan tanggal libur nasional bila ingin ikut dikecualikan, mis. ['2026-03-20','2026-05-01'] */
+const LIBUR=[];
+const tw=r=>{if(r.tat==null)return null;let n=0;const e=Date.parse(r.out);for(let t=Date.parse(r.in)+864e5;t<=e;t+=864e5){const d=new Date(t),w=d.getUTCDay();if(w!==0&&w!==6&&!LIBUR.includes(d.toISOString().slice(0,10)))n++}return n};
 const fd=s=>s?s.slice(8)+'/'+s.slice(5,7):'-';
 const bd=r=>`<span class="b ${r.h==='N/A'?'NA':r.h}" title="${r.hs==='auto'&&r.h!=='N/A'?'Estimasi otomatis memakai baku mutu (file tidak memuat interpretasi)':r.h==='N/A'?'Belum ada hasil uji':'Interpretasi dari file'}">${r.h==='N/A'?'Belum diuji':r.h+(r.hs==='auto'?' ≈':'')}</span>`;
 
@@ -95,15 +99,15 @@ function fill(){const keep=[$('fB').value,$('fM').value,$('fL').value];
 function render(){
   const b=$('fB').value,m=$('fM').value,l=$('fL').value;
   const a=R.filter(r=>(b==='ALL'||r.b===b)&&(m==='ALL'||r.m===m)&&inL(r,l));
-  const ev=a.filter(r=>r.h!=='N/A'),ms=ev.filter(r=>r.h==='MS').length,tms=ev.length-ms,tv=a.map(r=>r.tat).filter(t=>t!=null),vf=a.filter(r=>r.st==='SUDAH').length,pend=a.length-ev.length;
+  const ev=a.filter(r=>r.h!=='N/A'),ms=ev.filter(r=>r.h==='MS').length,tms=ev.length-ms,tv=a.map(tw).filter(t=>t!=null),vf=a.filter(r=>r.st==='SUDAH').length,pend=a.length-ev.length;
   const kc=(t,n,s,col,w)=>`<div class="card kc"><div class="mu sm">${t}</div><div class="num" style="color:${col}">${n}</div><div class="mu sm">${s}</div>${w!=null?`<div class="bar"><i style="width:${w}%;background:${col}"></i></div>`:''}</div>`;
   $('kpi').innerHTML=kc('Total sampel',nf(a.length),`${new Set(a.map(r=>r.m)).size} matriks, ${new Set(a.map(r=>r.b)).size} bulan${pend?`, ${pend} belum diuji`:''}`,'var(--tx)')
    +kc('Memenuhi syarat (MS)',nf(ms),pc(ms,ev.length)+' dari sampel teruji','var(--ms)',ev.length?100*ms/ev.length:0)
    +kc('Tidak memenuhi syarat (TMS)',nf(tms),pc(tms,ev.length)+' dari sampel teruji','var(--tms)',ev.length?100*tms/ev.length:0)
-   +kc('Rata-rata TAT',tv.length?(tv.reduce((x,y)=>x+y,0)/tv.length).toFixed(1)+' hari':'-',`${nf(tv.length)} sampel bertanggal valid`,'var(--wr)')
+   +kc('Rata-rata TAT (hari kerja)',tv.length?(tv.reduce((x,y)=>x+y,0)/tv.length).toFixed(1)+' hari':'-',`${nf(tv.length)} sampel bertanggal valid`,'var(--wr)')
    +kc('Terverifikasi',nf(vf),`${nf(a.length-vf)} belum diverifikasi`,'var(--ac)',a.length?100*vf/a.length:0);
   // ringkasan matriks
-  $('tM').innerHTML='<tr><th>Matriks</th><th>Sampel</th><th>MS / TMS</th><th>TMS</th><th>TAT</th></tr>'+MX.filter(x=>a.some(r=>r.m===x)).map(x=>{const z=a.filter(r=>r.m===x),e=z.filter(r=>r.h!=='N/A'),s=e.filter(r=>r.h==='MS').length,t=z.map(r=>r.tat).filter(v=>v!=null);
+  $('tM').innerHTML='<tr><th>Matriks</th><th>Sampel</th><th>MS / TMS</th><th>TMS</th><th>TAT hari kerja</th></tr>'+MX.filter(x=>a.some(r=>r.m===x)).map(x=>{const z=a.filter(r=>r.m===x),e=z.filter(r=>r.h!=='N/A'),s=e.filter(r=>r.h==='MS').length,t=z.map(tw).filter(v=>v!=null);
     return `<tr><td>${x[0]+x.slice(1).toLowerCase()}</td><td>${nf(z.length)}</td><td><div class="mb"><i style="width:${e.length?100*s/e.length:0}%;background:var(--ms)"></i><i style="flex:1;background:var(--tms)"></i></div></td><td>${pc(e.length-s,e.length)}</td><td>${t.length?(t.reduce((p,q)=>p+q,0)/t.length).toFixed(1)+' hr':'-'}</td></tr>`}).join('');
   charts(a,m,l);map(b,m,l);dq(a);table(a);
 }
@@ -143,13 +147,13 @@ $('dq').onclick=e=>{const x=e.target.closest('button');if(!x)return;$('tF').valu
 function table(a){const f=$('tF').value,q=$('q').value.toLowerCase().trim();
   TV=a.filter(r=>(f==='ALL'||(f==='EST'?r.hs==='auto'&&r.h!=='N/A':f==='DQ'?r.dq>0:f==='PEND'?r.h==='N/A':r.h===f))&&(!q||(r.s+' '+r.sppc+' '+r.l+' '+r.m).toLowerCase().includes(q)));
   $('tc').textContent=`Menampilkan ${nf(Math.min(TV.length,300))} dari ${nf(TV.length)} sampel. Klik baris untuk melihat rincian.`;
-  $('tb').innerHTML=TV.slice(0,300).map((r,i)=>`<tr class="c" data-i="${i}"><td><b>${r.s}</b></td><td>${r.sppc}</td><td>${lb(r.b)}</td><td>${r.m[0]+r.m.slice(1).toLowerCase()}</td><td>${r.l}</td><td>${fd(r.in)} → ${fd(r.out)}${r.dq?' <span class="fl" title="Tanggal asli: '+r.dr.join(' → ')+'">'+(r.dq===1?'diperbaiki':'cek')+'</span>':''}</td><td>${r.tat!=null?r.tat+' hr':'-'}</td><td>${bd(r)}</td><td>${r.fl.length?[...new Set(r.fl)].map(x=>`<span class="fl">${x}</span>`).join(''):'<span class="mu">-</span>'}</td></tr>`).join('')}
+  $('tb').innerHTML=TV.slice(0,300).map((r,i)=>`<tr class="c" data-i="${i}"><td><b>${r.s}</b></td><td>${r.sppc}</td><td>${lb(r.b)}</td><td>${r.m[0]+r.m.slice(1).toLowerCase()}</td><td>${r.l}</td><td>${fd(r.in)} → ${fd(r.out)}${r.dq?' <span class="fl" title="Tanggal asli: '+r.dr.join(' → ')+'">'+(r.dq===1?'diperbaiki':'cek')+'</span>':''}</td><td>${tw(r)!=null?tw(r)+' hr':'-'}</td><td>${bd(r)}</td><td>${r.fl.length?[...new Set(r.fl)].map(x=>`<span class="fl">${x}</span>`).join(''):'<span class="mu">-</span>'}</td></tr>`).join('')}
 $('tb').onclick=e=>{const t=e.target.closest('tr');if(!t)return;const r=TV[+t.dataset.i];
   $('dt').textContent=`${r.s} · ${r.m[0]+r.m.slice(1).toLowerCase()}`;$('ds').textContent=`SPPC ${r.sppc} · ${r.l} · masuk ${r.in||'-'} · keluar ${r.out||'-'} · ${r.st==='SUDAH'?'sudah':'belum'} verifikasi`;
   $('dn').innerHTML=bd(r)+(r.dq?` <span class="mu">Tanggal di file: ${r.dr.join(' → ')}</span>`:'');
   $('dp').innerHTML=r.pd.length?r.pd.map(p=>`<div class="pi ${p[3]?'o':''}"><div><b>${p[0]}</b><div class="mu sm">Analis: ${p[2]}</div></div><b>${p[1]}</b></div>`).join(''):'<p class="mu">Belum ada hasil uji.</p>';dg.showModal()};
-$('csv').onclick=()=>{const q=v=>'"'+String(v??'').replace(/"/g,'""')+'"',h=['Periode','Matriks','SPPC','No Sampel','Lokasi','Masuk','Keluar','TAT','Status','Hasil','Sumber hasil','Parameter melewati baku mutu'];
-  const rows=TV.map(r=>[r.b,r.m,r.sppc,r.s,r.l,r.in,r.out,r.tat,r.st,r.h,r.hs==='auto'?'estimasi':'file',[...new Set(r.fl)].join('; ')].map(q).join(','));
+$('csv').onclick=()=>{const q=v=>'"'+String(v??'').replace(/"/g,'""')+'"',h=['Periode','Matriks','SPPC','No Sampel','Lokasi','Masuk','Keluar','TAT hari kerja','Status','Hasil','Sumber hasil','Parameter melewati baku mutu'];
+  const rows=TV.map(r=>[r.b,r.m,r.sppc,r.s,r.l,r.in,r.out,tw(r),r.st,r.h,r.hs==='auto'?'estimasi':'file',[...new Set(r.fl)].join('; ')].map(q).join(','));
   dl_('daftar-sampel.csv','\ufeff'+h.join(',')+'\n'+rows.join('\n'),'text/csv')};
 function dl_(n,t,ty){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:ty}));a.download=n;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),999)}
 
