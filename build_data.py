@@ -83,7 +83,8 @@ LOKASI_RULES = [
     (r"^PALI$|PENUKAL", "PALI"),
 ]
 # Lokasi di luar Sumatera Selatan (dikelompokkan sebagai "Luar Sumsel" di peta)
-LUAR_SUMSEL = {"Pangkal Pinang", "Bangka Barat", "Bengkulu", "Lampung"}
+LUAR_SUMSEL = {"Pangkal Pinang", "Bangka Barat", "Bangka Tengah", "Bengkulu", "Lampung",
+               "Lampung Timur", "Metro"}
 
 META_KEYS = {
     "NO SPPC": "sppc", "LOKASI": "lok", "TANGGAL MASUK": "in",
@@ -359,35 +360,289 @@ def parse_workbook(path, month=None):
     return res
 
 
+# ===========================================================================
+#  LAB UDARA
+#  File Excel udara berisi satu sheet per bulan (Januari ... Desember).
+#  Taruh di folder ./excel_udara . File yang namanya memuat kata "PROGRAM"
+#  dicatat sebagai sumber "Udara - Program", selain itu "Udara".
+# ===========================================================================
+BULAN_ID = {b.lower(): i + 1 for i, b in enumerate(BULAN)}
+SEKSI_UDARA = {
+    "UDARA AMBIENT": "UDARA AMBIEN", "UDARA AMBIEN": "UDARA AMBIEN",
+    "UDARA INDOOR": "UDARA INDOOR",
+    "UDARA EMISI TIDAK BERGERAK": "EMISI TIDAK BERGERAK",
+    "UDARA EMISI BERGERAK": "EMISI BERGERAK",
+    "PARAMETER FISIK": "PARAMETER FISIK",
+}
+MATRIKS_UDARA = ["UDARA AMBIEN", "UDARA INDOOR", "EMISI TIDAK BERGERAK",
+                 "EMISI BERGERAK", "PARAMETER FISIK"]
+# Penanggung jawab (analis) per parameter Lab Udara.
+# Kunci = nama parameter (atau rumus di dalam kurung) huruf kecil tanpa spasi/tanda baca.
+ANALIS_UDARA = {
+    # Fisika
+    "suhu": "Idan", "kelembaban": "M Firdaus", "arahangin": "Badri",
+    "kecangin": "Badri", "kecepatanangin": "Badri", "kebisingan": "Badri",
+    "pencahayaan": "Merry", "getaran": "Idan", "kecepatanlajualir": "M Firdaus",
+    "lajuventilasi": "M Firdaus", "tekananudara": "M Firdaus",
+    # Kimia
+    "h2s": "Badri", "nh3": "Merry", "so2": "Badri", "co": "Merry", "no2": "Idan",
+    "nox": "Idan", "tsp": "Idan", "pb": "Badri", "hc": "Merry", "hcco": "Merry",
+    "pm10": "Badri", "pm25": "M Firdaus", "o3": "M Firdaus", "opasitas": "Idan",
+    "partikulat": "Merry",
+    # ISBB, iklim kerja, CO2: belum ada penanggung jawab di daftar -> "-"
+}
+META_UDARA = [
+    ("LOKASI", "lok"), ("TANGGAL PENGAMBILAN", "tk"), ("TANGGAL DITERIMA", "in"),
+    ("DEADLINE", "dl"), ("STATUS VERIFIKASI", "st"), ("TANGGAL VERIFIKASI", "st"),
+    ("KESIMPULAN", "ks"),
+]
+
+
+def ud_key(name):
+    n = name.strip().lower()
+    m = re.search(r"\(([^)]+)\)\s*$", n)
+    if m:
+        n = m.group(1)
+    return re.sub(r"[^a-z0-9]", "", n)
+
+
+def ud_analis(name):
+    return ANALIS_UDARA.get(ud_key(name), "-")
+
+
+def id_date(v):
+    """Tanggal Indonesia -> 'YYYY-MM-DD'. '19-21 Agustus 2026' -> tanggal terakhir (21)."""
+    if v is None or isinstance(v, (datetime.datetime, datetime.date, int, float)):
+        return clean_date(v)
+    s = re.sub(r"\s+", " ", str(v).strip().lower())
+    m = re.search(r"(\d{1,2}) ?([a-z]+) ?(\d{4})$", s)
+    if m and m[2] in BULAN_ID:
+        try:
+            d = datetime.date(int(m[3]), BULAN_ID[m[2]], int(m[1]))
+            return d.isoformat()
+        except ValueError:
+            return None
+    return clean_date(v)
+
+
+def ud_value(raw):
+    """Sel hasil yang terbaca Excel sebagai tanggal (salah ketik/format) -> kembalikan ke angka.
+    30/01/1900 12:00 -> 30.5 ; 31/03/2026 (ketik '31.3') -> '31.3 (cek)' ; format yyyy.m -> '2114.9 (cek)'"""
+    if isinstance(raw, datetime.datetime):
+        if raw.year == 1900:
+            base = datetime.datetime(1899, 12, 31) if raw < datetime.datetime(1900, 3, 1) \
+                else datetime.datetime(1899, 12, 30)
+            return fmt_value(round((raw - base).total_seconds() / 86400, 4))
+        if raw.day == 1 and raw.year != TAHUN:
+            return f"{raw.year}.{raw.month} (cek)"
+        return f"{raw.day}.{raw.month} (cek)"
+    return fmt_value(raw)
+
+
+def ud_id(v):
+    """No sampel/No Lab yang terformat tanggal 'yyyy.m' (mis. 6176.2) -> '6176.2'."""
+    if isinstance(v, datetime.datetime):
+        return f"{v.year}.{v.month}" if v.day == 1 else v.date().isoformat()
+    return norm_id(v)
+
+
+def parse_udara_sheet(rows, period, lab):
+    meta = {}
+    for ri, r in enumerate(rows[:15]):
+        t = norm_text(r[0]) if r else None
+        if not t:
+            continue
+        up = re.sub(r"\s+", " ", t.upper())
+        for pref, key in META_UDARA:
+            if up.startswith(pref) and key not in meta:
+                meta[key] = ri
+    if not meta:
+        return []
+    samp_row = min(meta.values()) - 1
+    sppc_row = samp_row - 1
+    if sppc_row < 0:
+        return []
+
+    # parameter per seksi
+    params, sec, ket_row = [], None, None
+    for ri in range(samp_row + 1, len(rows)):
+        r = rows[ri]
+        a, b, c = (norm_text(r[i]) if len(r) > i else None for i in range(3))
+        if a and "KETERANGAN" in a.upper():
+            ket_row = ri
+            break
+        if a and b and len(a) <= 2:
+            sec = SEKSI_UDARA.get(re.sub(r"\s+", " ", b.upper()))
+            continue
+        if sec and c:
+            params.append((ri, sec, c, ud_analis(c)))
+
+    maxcols = max(len(r) for r in rows)
+
+    def cell(ri, c):
+        if ri is None or ri >= len(rows):
+            return None
+        row = rows[ri]
+        return row[c] if c < len(row) else None
+
+    def m_(key, c):
+        return cell(meta.get(key), c)
+
+    # --- kelompokkan kolom per No Lab (SPPC); info kelompok diambil dari kolom mana pun
+    groups, g = [], None
+    for c in range(3, maxcols):
+        samp = ud_id(cell(samp_row, c))
+        sp = ud_id(cell(sppc_row, c))
+        if (samp and samp.startswith("#")) or (sp and sp.startswith("#")):
+            continue
+        if sp or g is None:
+            g = dict(sppc=sp or "-", cols=[], lok=None, tk=None, in_=None, dl=None, st=None)
+            groups.append(g)
+        if not samp:
+            continue
+        g["cols"].append((c, samp))
+        for k, raw in (("lok", m_("lok", c)), ("tk", m_("tk", c)), ("in_", m_("in", c)),
+                       ("dl", m_("dl", c)), ("st", m_("st", c))):
+            if g[k] is None and norm_text(raw):
+                g[k] = raw
+
+    out = []
+    for g in groups:
+        has_info = any(g[k] for k in ("lok", "tk", "in_", "st"))
+        if not has_info:      # kolom TOTAL / rekap di ujung kanan
+            continue
+        g_lok, g_in, g_dl = clean_loc(g["lok"]), id_date(g["in_"]), id_date(g["dl"])
+        g_tk = g["tk"]
+        if isinstance(g_tk, (datetime.datetime, datetime.date)):
+            g_tk = clean_date(g_tk)
+        else:
+            g_tk = norm_text(g_tk)
+        for c, samp in g["cols"]:
+            cur = dict(sppc=g["sppc"], lok=clean_loc(m_("lok", c)) or g_lok, tk=g_tk,
+                       in_=g_in, dl=g_dl, st=norm_text(m_("st", c)) or norm_text(g["st"]))
+            pd_list, secs = [], Counter()
+            for ri, s, name, an in params:
+                raw = cell(ri, c)
+                if raw is None or (isinstance(raw, str) and not raw.strip()):
+                    continue
+                secs[s] += 1
+                pd_list.append([name, ud_value(raw), an, s])
+            matrix = secs.most_common(1)[0][0] if secs else "UDARA (BELUM ADA HASIL)"
+            pd_out = [[name if s == matrix else f"{name} [{s.title()}]", val, an, 0]
+                      for name, val, an, s in pd_list]
+
+            ks = norm_text(m_("ks", c))
+            ks = ks.upper() if ks else None
+            if ks not in ("MS", "TMS"):
+                ks = None
+            status = "SUDAH" if "SUDAH" in (cur["st"] or "").upper() else "BELUM"
+            ket = " / ".join(x for x in (norm_text(cell(ket_row, c)),
+                                         norm_text(cell(ket_row + 1 if ket_row else None, c))) if x)
+            out.append({
+                "lab": lab, "b": period, "m": matrix, "sppc": cur["sppc"], "s": samp,
+                "l": cur["lok"] or "Tidak Diketahui",
+                "in": cur["in_"], "out": None, "tat": None, "dq": 0, "dr": None,
+                "dl": cur["dl"], "tk": cur["tk"], "ket": ket or None, "st": status,
+                "h": ks or "N/A", "hs": "file" if ks else "auto", "auto": "N/A",
+                "fl": [], "pd": pd_out,
+            })
+    return out
+
+
+def parse_udara_workbook(path):
+    lab = "UDARA-P" if "PROGRAM" in os.path.basename(path).upper() else "UDARA"
+    wb = openpyxl.load_workbook(path, data_only=True, read_only=True)
+    res = []
+    for ws in wb.worksheets:
+        mi = BULAN_ID.get(ws.title.strip().lower())
+        if not mi:
+            continue
+        rows = [list(r) for r in ws.iter_rows(min_row=1, max_row=80, values_only=True)]
+        res.extend(parse_udara_sheet(rows, f"{TAHUN}-{mi:02d}", lab))
+    return res
+
+
+LAB_NAMA = {"KIMIA": "Kimia Air & Makanan", "UDARA": "Udara",
+            "UDARA-P": "Udara (Program)"}
+
+
+def load_existing(path):
+    """Ambil records dari data.js yang sudah ada (dipakai bila folder Excel kosong)."""
+    if not os.path.exists(path):
+        return []
+    s = open(path, encoding="utf-8").read().strip()
+    s = s[s.index("=") + 1:].rstrip(";")
+    recs = json.loads(s).get("records", [])
+    for r in recs:
+        r.setdefault("lab", "KIMIA")
+    return recs
+
+
 def main():
+    """python build_data.py [folder_kimia] [data.js] [folder_udara]"""
     folder = sys.argv[1] if len(sys.argv) > 1 else "excel"
     outfile = sys.argv[2] if len(sys.argv) > 2 else "data.js"
-    files = sorted(glob.glob(os.path.join(folder, "*.xlsx")) +
-                   glob.glob(os.path.join(folder, "*.xlsm")))
-    files = [f for f in files if not os.path.basename(f).startswith("~$")]
-    if not files:
-        sys.exit(f"Tidak ada file .xlsx di folder '{folder}'")
+    folder_ud = sys.argv[3] if len(sys.argv) > 3 else "excel_udara"
+    lama = load_existing(outfile)
+
+    def xl(d):
+        f = sorted(glob.glob(os.path.join(d, "*.xlsx")) + glob.glob(os.path.join(d, "*.xlsm")))
+        return [x for x in f if not os.path.basename(x).startswith("~$")]
+
     allrec = []
-    for f in sorted(files, key=lambda x: month_from_filename(x) or 99):
-        try:
-            recs = parse_workbook(f)
-        except Exception as e:
-            print(f"[GAGAL] {os.path.basename(f)}: {e}")
-            continue
-        c = Counter(r["m"] for r in recs)
-        print(f"[OK] {os.path.basename(f)[:55]:55s} {len(recs):4d} sampel  {dict(c)}")
-        allrec.extend(recs)
+    # ---------- Lab Kimia Air & Makanan
+    files = xl(folder)
+    if files:
+        for f in sorted(files, key=lambda x: month_from_filename(x) or 99):
+            try:
+                recs = parse_workbook(f)
+            except Exception as e:
+                print(f"[GAGAL] {os.path.basename(f)}: {e}")
+                continue
+            for r in recs:
+                r["lab"] = "KIMIA"
+            c = Counter(r["m"] for r in recs)
+            print(f"[OK] {os.path.basename(f)[:55]:55s} {len(recs):4d} sampel  {dict(c)}")
+            allrec.extend(recs)
+    else:
+        keep = [r for r in lama if r.get("lab", "KIMIA") == "KIMIA"]
+        print(f"[INFO] folder '{folder}' kosong -> {len(keep)} sampel Kimia Air diambil dari {outfile} lama")
+        allrec.extend(keep)
+
+    # ---------- Lab Udara
+    files = xl(folder_ud)
+    if files:
+        for f in files:
+            try:
+                recs = parse_udara_workbook(f)
+            except Exception as e:
+                print(f"[GAGAL] {os.path.basename(f)}: {e}")
+                continue
+            c = Counter(r["m"] for r in recs)
+            print(f"[OK] {os.path.basename(f)[:55]:55s} {len(recs):4d} sampel  {dict(c)}")
+            allrec.extend(recs)
+    else:
+        keep = [r for r in lama if r.get("lab", "KIMIA").startswith("UDARA")]
+        print(f"[INFO] folder '{folder_ud}' kosong -> {len(keep)} sampel Udara diambil dari {outfile} lama")
+        allrec.extend(keep)
+
+    if not allrec:
+        sys.exit("Tidak ada data. Taruh file Excel di folder 'excel' dan/atau 'excel_udara'.")
+    allrec.sort(key=lambda r: (r["b"], r.get("lab", "")))
     payload = {
         "generated": datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
         "year": TAHUN,
         # konfigurasi dipakai juga oleh fitur upload Excel di browser (index.html)
         "cfg": {"year": TAHUN, "rules": RULES, "alias": ALIAS,
-                "loc": LOKASI_RULES, "luar": sorted(LUAR_SUMSEL)},
+                "loc": LOKASI_RULES, "luar": sorted(LUAR_SUMSEL),
+                "labs": LAB_NAMA, "mxu": MATRIKS_UDARA, "seksi": SEKSI_UDARA,
+                "analisU": ANALIS_UDARA},
         "records": allrec,
     }
     with open(outfile, "w", encoding="utf-8") as fh:
         fh.write("window.LAB_DATA=" + json.dumps(payload, ensure_ascii=False, separators=(",", ":")) + ";")
-    print(f"\nTotal {len(allrec)} sampel -> {outfile} ({os.path.getsize(outfile)/1024:.0f} KB)")
+    c = Counter(LAB_NAMA.get(r.get("lab"), r.get("lab")) for r in allrec)
+    print(f"\nTotal {len(allrec)} sampel {dict(c)} -> {outfile} ({os.path.getsize(outfile)/1024:.0f} KB)")
 
 
 if __name__ == "__main__":
