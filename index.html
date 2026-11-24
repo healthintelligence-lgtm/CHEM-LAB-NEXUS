@@ -42,13 +42,14 @@ dialog{background:var(--s1);color:var(--tx);border:1px solid var(--ln);border-ra
 <header class="top">
   <div class="brand"><div class="logo">LK</div><div><h1>Dasbor Laboratorium Kimia Air & Makanan</h1><p class="mu sm" id="sub"></p></div></div>
   <div class="ctl">
-    <select id="fB" aria-label="Periode"></select><select id="fM" aria-label="Matriks"></select><select id="fL" aria-label="Lokasi"></select>
+    <select id="fB" aria-label="Periode"></select><select id="fM" aria-label="Matriks"></select><select id="fL" aria-label="Lokasi"></select><select id="fA" aria-label="Analis"></select>
     <label class="btn p">Tambah data bulan (.xlsx)<input type="file" id="up" accept=".xlsx,.xls" multiple hidden></label>
     <button class="btn" id="dl" hidden>Unduh data.js</button>
     <button class="btn" id="th" aria-label="Ganti tema">Tema</button>
   </div>
 </header>
 <main>
+  <div class="card sm" id="an" hidden style="border-color:var(--ac)"></div>
   <section class="g k" id="kpi"></section>
   <section class="g g2">
     <div class="card"><h2>Tren bulanan</h2><p class="mu sm">Jumlah sampel MS dan TMS per bulan, garis = persentase TMS (tidak terpengaruh filter periode)</p><div class="ch"><canvas id="cT"></canvas></div></div>
@@ -61,7 +62,7 @@ dialog{background:var(--s1);color:var(--tx);border:1px solid var(--ln);border-ra
     <div class="card"><h2>Parameter yang paling sering melewati baku mutu</h2><p class="mu sm">Jumlah sampel yang melanggar, per parameter</p><div class="ch" style="height:330px"><canvas id="cP"></canvas></div></div>
   </section>
   <section class="g g4">
-    <div class="card"><h2>Beban kerja analis</h2><p class="mu sm">Jumlah hasil parameter yang dikerjakan per analis</p><div class="ch"><canvas id="cA"></canvas></div></div>
+    <div class="card"><h2 id="aT">Beban kerja analis</h2><p class="mu sm" id="aS">Jumlah hasil parameter yang dikerjakan per analis</p><div class="ch"><canvas id="cA"></canvas></div></div>
     <div class="card"><h2>Catatan kualitas data</h2><p class="mu sm">Klik untuk melihat sampel terkait di tabel</p><div class="dq" id="dq"></div></div>
   </section>
   <section class="card" id="tbl">
@@ -78,7 +79,7 @@ const D=window.LAB_DATA,C=D.cfg,$=i=>document.getElementById(i),nf=n=>n.toLocale
 const BS=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'],BLN=['JANUARI','FEBRUARI','MARET','APRIL','MEI','JUNI','JULI','AGUSTUS','SEPTEMBER','OKTOBER','NOVEMBER','DESEMBER'];
 const lb=b=>BS[+b.slice(5)-1]+' '+b.slice(0,4),MX=['AIR MINUM','AIR BERSIH','AIR PILIHAN','AIR LIMBAH','AIR PERMUKAAN','MAKANAN','NARKOBA'];
 const GEO={'Palembang':[-2.99,104.76],'Banyuasin':[-2.65,104.45],'Musi Banyuasin':[-2.88,103.85],'Ogan Ilir':[-3.22,104.65],'OKI':[-3.45,104.98],'Prabumulih':[-3.43,104.24],'PALI':[-3.3,103.95],'Muara Enim':[-3.67,103.78],'Lahat':[-3.8,103.54],'Empat Lawang':[-3.8,102.95],'Musi Rawas':[-3.1,103.15],'Musi Rawas Utara':[-2.75,102.95],'Lubuklinggau':[-3.3,102.86],'Pagar Alam':[-4.02,103.26],'OKU':[-4.13,104.17],'OKU Timur':[-3.95,104.75],'OKU Selatan':[-4.52,104.05]};
-let R=D.records,TV=[],CH={};
+let R=D.records,RB=R,TV=[],CH={};
 const cv=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const inL=(r,l)=>l==='ALL'||r.l===l||(l==='@LUAR'&&C.luar.includes(r.l));
 /* TAT hari kerja: Sabtu/Minggu tidak dihitung, hari masuk tidak dihitung.
@@ -88,17 +89,22 @@ const tw=r=>{if(r.tat==null)return null;let n=0;const e=Date.parse(r.out);for(le
 const fd=s=>s?s.slice(8)+'/'+s.slice(5,7):'-';
 const bd=r=>`<span class="b ${r.h==='N/A'?'NA':r.h}" title="${r.hs==='auto'&&r.h!=='N/A'?'Estimasi otomatis memakai baku mutu (file tidak memuat interpretasi)':r.h==='N/A'?'Belum ada hasil uji':'Interpretasi dari file'}">${r.h==='N/A'?'Belum diuji':r.h+(r.hs==='auto'?' ≈':'')}</span>`;
 
-function fill(){const keep=[$('fB').value,$('fM').value,$('fL').value];
+function fill(){const keep=[$('fB').value,$('fM').value,$('fL').value,$('fA').value];
   const bs=[...new Set(R.map(r=>r.b))].sort(),ms=MX.filter(m=>R.some(r=>r.m===m)),ls=[...new Set(R.map(r=>r.l))].sort((a,b)=>(a==='Tidak Diketahui')-(b==='Tidak Diketahui')||a.localeCompare(b));
   const o=(a,f)=>a.map(x=>`<option value="${x[0]}">${x[1]}</option>`).join('');
   $('fB').innerHTML=o([['ALL','Semua periode'],...bs.map(b=>[b,lb(b)])]);$('fM').innerHTML=o([['ALL','Semua matriks'],...ms.map(m=>[m,m[0]+m.slice(1).toLowerCase()])]);
   $('fL').innerHTML=o([['ALL','Semua kab/kota'],...(R.some(r=>C.luar.includes(r.l))?[['@LUAR','Luar Sumsel (semua)']]:[]),...ls.map(l=>[l,l])]);
-  [$('fB'),$('fM'),$('fL')].forEach((e,i)=>{if([...e.options].some(x=>x.value===keep[i]))e.value=keep[i]});
+  const W={};R.forEach(r=>r.pd.forEach(p=>{if(p[2]&&p[2]!=='-')W[p[2]]=(W[p[2]]||0)+1}));
+  $('fA').innerHTML=o([['ALL','Semua analis'],...Object.keys(W).sort((x,y)=>x.localeCompare(y)).map(x=>[x,x])]);
+  [$('fB'),$('fM'),$('fL'),$('fA')].forEach((e,i)=>{if([...e.options].some(x=>x.value===keep[i]))e.value=keep[i]});
   const g=D.generated||'';$('sub').textContent=`${bs.length?lb(bs[0])+' – '+lb(bs[bs.length-1]):''} · ${nf(R.length)} sampel · data per ${g}`}
 
 function render(){
-  const b=$('fB').value,m=$('fM').value,l=$('fL').value;
-  const a=R.filter(r=>(b==='ALL'||r.b===b)&&(m==='ALL'||r.m===m)&&inL(r,l));
+  const b=$('fB').value,m=$('fM').value,l=$('fL').value,an=$('fA').value;
+  /* Tampilan per analis: hanya sampel yang punya parameter milik analis itu; hanya parameter miliknya yang dihitung */
+  RB=an==='ALL'?R:R.filter(r=>r.pd.some(p=>p[2]===an)).map(r=>{const pd=r.pd.filter(p=>p[2]===an),fl=pd.filter(p=>p[3]).map(p=>p[0]);return{...r,pd,fl,h:fl.length?'TMS':'MS',hs:'auto'}});
+  $('an').hidden=an==='ALL';$('an').innerHTML=`Tampilan analis: <b>${an}</b>. Semua angka hanya menghitung parameter yang dikerjakan ${an}. MS/TMS dinilai dari parameter tersebut saja (≈), jadi bukan hasil resmi seluruh sampel.`;
+  const a=RB.filter(r=>(b==='ALL'||r.b===b)&&(m==='ALL'||r.m===m)&&inL(r,l));
   const ev=a.filter(r=>r.h!=='N/A'),ms=ev.filter(r=>r.h==='MS').length,tms=ev.length-ms,tv=a.map(tw).filter(t=>t!=null),vf=a.filter(r=>r.st==='SUDAH').length,pend=a.length-ev.length;
   const kc=(t,n,s,col,w)=>`<div class="card kc"><div class="mu sm">${t}</div><div class="num" style="color:${col}">${n}</div><div class="mu sm">${s}</div>${w!=null?`<div class="bar"><i style="width:${w}%;background:${col}"></i></div>`:''}</div>`;
   $('kpi').innerHTML=kc('Total sampel',nf(a.length),`${new Set(a.map(r=>r.m)).size} matriks, ${new Set(a.map(r=>r.b)).size} bulan${pend?`, ${pend} belum diuji`:''}`,'var(--tx)')
@@ -116,7 +122,7 @@ function mk(id,cfg){if(typeof Chart==='undefined')return;CH[id]&&CH[id].destroy(
   Chart.defaults.font.family="'Public Sans',sans-serif";Chart.defaults.color=t;
   CH[id]=new Chart($(id),{type:'bar',...cfg,options:{responsive:true,maintainAspectRatio:false,...cfg.options,scales:Object.fromEntries(Object.entries(cfg.options.scales).map(([k,v])=>[k,{grid:{color:v.noGrid?'transparent':g},...v}]))}})}
 function charts(a,m,l){
-  const t=R.filter(r=>(m==='ALL'||r.m===m)&&inL(r,l)),bs=[...new Set(R.map(r=>r.b))].sort(),cnt=(x,h)=>x.filter(r=>r.h===h).length;
+  const t=RB.filter(r=>(m==='ALL'||r.m===m)&&inL(r,l)),bs=[...new Set(R.map(r=>r.b))].sort(),cnt=(x,h)=>x.filter(r=>r.h===h).length;
   mk('cT',{data:{labels:bs.map(x=>BS[+x.slice(5)-1]),datasets:[
     {type:'line',label:'% TMS',data:bs.map(x=>{const z=t.filter(r=>r.b===x&&r.h!=='N/A');return z.length?+(100*cnt(z,'TMS')/z.length).toFixed(1):null}),borderColor:cv('--wr'),backgroundColor:cv('--wr'),yAxisID:'y1',tension:.3,pointRadius:3},
     {type:'bar',label:'MS',data:bs.map(x=>cnt(t.filter(r=>r.b===x),'MS')),backgroundColor:cv('--ms'),stack:'s'},
@@ -124,11 +130,11 @@ function charts(a,m,l){
     options:{interaction:{mode:'index',intersect:false},scales:{x:{stacked:true,noGrid:1},y:{stacked:true,beginAtZero:true},y1:{position:'right',min:0,max:100,noGrid:1,ticks:{callback:v=>v+'%'}}}}});
   const P={};a.forEach(r=>new Set(r.fl).forEach(f=>P[f]=(P[f]||0)+1));const tp=Object.entries(P).sort((x,y)=>y[1]-x[1]).slice(0,8);
   mk('cP',{type:'bar',data:{labels:tp.map(x=>x[0]),datasets:[{label:'Sampel melewati baku mutu',data:tp.map(x=>x[1]),backgroundColor:cv('--tms'),borderRadius:4}]},options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{beginAtZero:true},y:{noGrid:1}}}});
-  const A={};a.forEach(r=>r.pd.forEach(p=>{if(p[2]&&p[2]!=='-')A[p[2]]=(A[p[2]]||0)+1}));const ta=Object.entries(A).sort((x,y)=>y[1]-x[1]);
+  const an=$('fA').value,A={};$('aT').textContent=an==='ALL'?'Beban kerja analis':'Beban kerja '+an+' per parameter';$('aS').textContent=an==='ALL'?'Jumlah hasil parameter yang dikerjakan per analis':'Jumlah hasil yang dikerjakan '+an+', dirinci per parameter';a.forEach(r=>r.pd.forEach(p=>{if(p[2]&&p[2]!=='-'){const k=an==='ALL'?p[2]:p[0];A[k]=(A[k]||0)+1}}));const ta=Object.entries(A).sort((x,y)=>y[1]-x[1]);
   mk('cA',{type:'bar',data:{labels:ta.map(x=>x[0]),datasets:[{label:'Hasil parameter',data:ta.map(x=>x[1]),backgroundColor:cv('--ac'),borderRadius:4}]},options:{plugins:{legend:{display:false}},scales:{x:{noGrid:1},y:{beginAtZero:true}}}})}
 
 function map(b,m,l){
-  const a=R.filter(r=>(b==='ALL'||r.b===b)&&(m==='ALL'||r.m===m)),S={};
+  const a=RB.filter(r=>(b==='ALL'||r.b===b)&&(m==='ALL'||r.m===m)),S={};
   a.forEach(r=>{const k=C.luar.includes(r.l)?'Luar Sumsel':r.l;(S[k]=S[k]||{n:0,t:0,e:0});S[k].n++;if(r.h!=='N/A'){S[k].e++;if(r.h==='TMS')S[k].t++}});
   const pts=Object.entries(GEO).map(([k,v])=>[k,20+(v[1]-102.6)*150,20+(-v[0]-2.5)*150]).concat([['Luar Sumsel',385,310]]);
   $('map').innerHTML=pts.map(([k,x,y])=>{const s=S[k]||{n:0,t:0,e:0},rt=s.e?s.t/s.e:0,col=!s.n?cv('--ln'):rt>.5?cv('--tms'):rt>.3?cv('--wr'):cv('--ms'),r=s.n?6+Math.min(14,Math.sqrt(s.n)*1.1):4,sel=l===k||(k==='Luar Sumsel'&&l==='@LUAR');
@@ -190,7 +196,7 @@ $('up').onchange=async e=>{const add=[],per=new Set(),bad=[];
   alert((per.size?`Berhasil memuat ${add.length} sampel untuk ${[...per].map(lb).join(', ')}.\nUntuk membuatnya permanen: klik "Unduh data.js", lalu ganti file data.js di repositori dan deploy ulang.`:'Tidak ada data yang dimuat.')+(bad.length?'\n\nGagal:\n'+bad.join('\n'):''));e.target.value=''};
 $('dl').onclick=()=>dl_('data.js','window.LAB_DATA='+JSON.stringify(D)+';','text/javascript');
 
-['fB','fM','fL','tF'].forEach(i=>$(i).onchange=render);$('q').oninput=render;
+['fB','fM','fL','fA','tF'].forEach(i=>$(i).onchange=render);$('q').oninput=render;
 const sth=t=>{document.documentElement.dataset.theme=t;try{localStorage.setItem('th',t)}catch(e){}};
 try{sth(localStorage.getItem('th')||'dark')}catch(e){}
 $('th').onclick=()=>{sth(document.documentElement.dataset.theme==='dark'?'light':'dark');render()};
