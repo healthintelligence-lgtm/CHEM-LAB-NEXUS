@@ -140,6 +140,7 @@ body{background-image:radial-gradient(900px 520px at 6% -6%,color-mix(in srgb,va
 .leaflet-interactive{cursor:pointer;filter:drop-shadow(0 0 6px currentColor)}
 .lbl span{position:absolute;transform:translate(-50%,-50%);font:600 11px 'Instrument Sans';color:var(--tx);text-shadow:0 0 4px var(--bg),0 0 8px var(--bg);pointer-events:none}
 #luar{margin-top:10px}
+[data-theme=dark] .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.9) contrast(.88) saturate(.65)}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -212,7 +213,7 @@ const MI=m=>/^AIR /.test(m)?['water','--ac']:m==='MAKANAN'?['food','--wr']:m==='
 const mic=m=>{const[i,c]=MI(m);return `<span class="mi" style="--c:var(${c})"><svg class="ic"><use href="#i-${i}"/></svg></span>`};
 const GEO={'Palembang':[-2.99,104.76],'Banyuasin':[-2.65,104.45],'Musi Banyuasin':[-2.88,103.85],'Ogan Ilir':[-3.22,104.65],'OKI':[-3.45,104.98],'Prabumulih':[-3.43,104.24],'PALI':[-3.3,103.95],'Muara Enim':[-3.67,103.78],'Lahat':[-3.8,103.54],'Empat Lawang':[-3.8,102.95],'Musi Rawas':[-3.1,103.15],'Musi Rawas Utara':[-2.75,102.95],'Lubuklinggau':[-3.3,102.86],'Pagar Alam':[-4.02,103.26],'OKU':[-4.13,104.17],'OKU Timur':[-3.95,104.75],'OKU Selatan':[-4.52,104.05]};
 /* URL web app Google Apps Script (berakhiran /exec). Kosong = pakai data.js saja. Lihat README. */
-const API='';
+const API='https://script.google.com/macros/s/AKfycbxBwyLFl4Hap1aPheh813_csocniQlj8swudekYkgcxD6-K2-NfTyYAYKYUmJFu_OQF8w/exec';
 let R=D.records,RB=R,TV=[],CH={};
 const cv=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const inL=(r,l)=>l==='ALL'||r.l===l||(l==='@LUAR'&&C.luar.includes(r.l));
@@ -282,12 +283,11 @@ function map(b,m,l){
   a.forEach(r=>{const k=C.luar.includes(r.l)?'Luar Sumsel':r.l;(S[k]=S[k]||{n:0,t:0,e:0});S[k].n++;if(ev(r)){S[k].e++;if(r.h==='TMS')S[k].t++}});
   if(typeof L==='undefined'){$('lmap').innerHTML='<p class="mu sm" style="padding:16px">Peta tidak dapat dimuat (perlu koneksi internet).</p>';return}
   if(!LM){LM=L.map('lmap',{scrollWheelZoom:false,minZoom:6}).fitBounds([[-4.75,102.55],[-2.45,105.2]]);LG=L.layerGroup().addTo(LM)}
-  const th=document.documentElement.dataset.theme==='light'?'light':'dark';
-  if(LTH!==th){if(LT)LM.removeLayer(LT);LT=L.tileLayer(`https://{s}.basemaps.cartocdn.com/${th}_all/{z}/{x}/{y}{r}.png`,{subdomains:'abcd',maxZoom:12,attribution:'&copy; OpenStreetMap &copy; CARTO'}).addTo(LM);LT.bringToBack();LTH=th}
+  if(!LT)LT=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:12,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'}).addTo(LM);
   const pick=k=>{if([...$('fL').options].some(o=>o.value===k)){$('fL').value=$('fL').value===k?'ALL':k;render()}};
   LG.clearLayers();
-  Object.entries(GEO).forEach(([k,v])=>{const s=S[k]||{n:0,t:0,e:0},rt=s.e?s.t/s.e:0,col=!s.n?cv('--na'):rt>.5?cv('--tms'):rt>.3?cv('--wr'):cv('--ms'),sel=l===k,r=s.n?9+Math.min(22,Math.sqrt(s.n)*2):5;
-    if(s.n)L.circleMarker(v,{radius:r+8,stroke:false,fillColor:col,fillOpacity:.18,interactive:false}).addTo(LG);
+  Object.entries(GEO).forEach(([k,v])=>{const s=S[k]||{n:0,t:0,e:0},rt=s.e?s.t/s.e:0,col=!s.n?cv('--na'):rt>.5?cv('--tms'):rt>.3?cv('--wr'):cv('--ms'),sel=l===k,r=s.n?7+Math.min(14,Math.sqrt(s.n)*.9):4;
+    if(s.n)L.circleMarker(v,{radius:r+5,stroke:false,fillColor:col,fillOpacity:.18,interactive:false}).addTo(LG);
     const c=L.circleMarker(v,{radius:r,color:sel?cv('--tx'):col,weight:sel?3:1.5,fillColor:col,fillOpacity:.72}).addTo(LG);
     c.bindTooltip(`<b>${k}</b><br>${nf(s.n)} sampel, TMS ${pc(s.t,s.e)}`,{direction:'top',offset:[0,-r]});c.on('click',()=>pick(k));
     if(s.n)L.marker(v,{icon:L.divIcon({className:'lbl',html:`<span>${s.n}</span>`,iconSize:[0,0]}),interactive:false}).addTo(LG)});
