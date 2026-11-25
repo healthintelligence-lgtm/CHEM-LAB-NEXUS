@@ -154,7 +154,10 @@ def clean_date(v):
         try:
             d = datetime.date(int(m[3]), int(m[2]), int(m[1]))
         except ValueError:
-            return None
+            try:   # format Amerika m/d/yyyy, mis. 2/18/2026
+                d = datetime.date(int(m[3]), int(m[1]), int(m[2]))
+            except ValueError:
+                return None
     return d.isoformat() if 2000 <= d.year <= 2100 else None
 
 
@@ -306,6 +309,10 @@ def parse_sheet(rows, matrix, period):
             row = rows[ri]
             raw = row[c] if c < len(row) else None
             if raw is None or (isinstance(raw, str) and not raw.strip()):
+                continue
+            if isinstance(raw, (datetime.datetime, datetime.date)):
+                # hasil "19.2" yang terbaca Excel sebagai tanggal: jangan dinilai sebagai angka
+                pd_list.append([name, f"{raw.day}.{raw.month} (cek)", analis, 0])
                 continue
             val = fmt_value(raw)
             oos = 0

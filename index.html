@@ -7,6 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
 <style>
 :root{--bg:#0c1430;--p:#121c3e;--p2:#18244c;--ln:#24315c;--tick:#3a4a80;--tx:#e6ecff;--mu:#8a97bf;--ms:#4fd6c1;--tms:#ff6b8b;--wr:#f5c25b;--pr:#a99bff;--ac:#5cb8ff;--na:#3a466e;--lk:#5cb8ff;--lu:#a99bff;--lp:#e48cff}
@@ -104,16 +106,57 @@ dialog::backdrop{background:color-mix(in srgb,var(--bg) 70%,transparent);backdro
 .pi>b{font-family:Unbounded;font-weight:400;font-size:13px}
 main>*,.g>*{min-width:0}
 @media(max-width:700px){.top{position:static}.top-in,main{padding-left:14px;padding-right:14px}.seg{border-radius:14px}.ph h2{font-size:19px}#pz{height:190px}select{flex:1 1 140px}.ro .num{font-size:24px}}
+
+/* ===== tema HUD / futuristik ===== */
+body{background-image:radial-gradient(900px 520px at 6% -6%,color-mix(in srgb,var(--ac) 18%,transparent),transparent 62%),radial-gradient(820px 520px at 100% 0,color-mix(in srgb,var(--lu) 15%,transparent),transparent 60%),linear-gradient(color-mix(in srgb,var(--tick) 20%,transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--tick) 20%,transparent) 1px,transparent 1px);background-size:auto,auto,44px 44px,44px 44px}
+.card{border-radius:6px;border-color:color-mix(in srgb,var(--ac) 24%,var(--ln));background:linear-gradient(160deg,color-mix(in srgb,var(--p2) 72%,transparent),color-mix(in srgb,var(--p) 88%,transparent));backdrop-filter:blur(6px);box-shadow:0 14px 40px -22px color-mix(in srgb,var(--ac) 45%,transparent);animation:up .55s both}
+.card::before,.card::after{border-color:var(--ac);filter:drop-shadow(0 0 4px var(--ac))}
+@keyframes up{from{opacity:0;transform:translateY(8px)}}
+.card>h2::before{content:"";display:inline-block;width:6px;height:6px;margin-right:9px;vertical-align:2px;background:var(--ac);box-shadow:0 0 9px var(--ac);transform:rotate(45deg)}
+.top{position:sticky}.top::after{content:"";position:absolute;left:0;bottom:-1px;width:100%;height:1px;background:linear-gradient(90deg,transparent,var(--ac),var(--lu),transparent) no-repeat;background-size:40% 100%;animation:sw 7s linear infinite}
+@keyframes sw{from{background-position:-40% 0}to{background-position:140% 0}}
+.glyph i{animation:spin 16s linear infinite}.glyph i+i{animation-direction:reverse}@keyframes spin{to{transform:rotate(360deg)}}
+.glyph b{animation:bl 2.4s ease-in-out infinite}@keyframes bl{50%{opacity:.35}}
+#src::before{content:"";display:inline-block;width:7px;height:7px;margin-right:7px;border-radius:50%;background:var(--ms);box-shadow:0 0 8px var(--ms);animation:bl 2s infinite}
+#src:empty::before{display:none}
+.ro .num{text-shadow:0 0 22px color-mix(in srgb,currentColor 50%,transparent)}
+.seg{box-shadow:0 0 24px -10px var(--ac)}.seg button[aria-pressed=true]{box-shadow:inset 0 0 0 1px var(--ac),0 0 14px -4px var(--ac)}
+/* ikon */
+.ic{width:1.15em;height:1.15em;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.mi{display:inline-grid;place-items:center;width:27px;height:27px;margin-right:9px;border-radius:8px;vertical-align:middle;color:var(--c);background:color-mix(in srgb,var(--c) 14%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--c) 42%,transparent),0 0 14px -4px var(--c)}
+.mi .ic{width:16px;height:16px}
+/* temuan utama */
+#ins{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+#ins .in{position:relative;display:flex;flex-direction:column;gap:2px;padding:13px 16px;border:1px solid var(--ln);border-left:3px solid var(--c);border-radius:4px;background:linear-gradient(120deg,color-mix(in srgb,var(--c) 11%,var(--p)),var(--p));animation:up .6s both}
+#ins .in b{font:600 17px Unbounded;color:var(--c);text-shadow:0 0 16px color-mix(in srgb,var(--c) 55%,transparent);line-height:1.3}
+/* peta */
+.g3{grid-template-columns:3fr 2fr}
+#lmap{height:410px;margin-top:10px;border:1px solid var(--ln);border-radius:4px;overflow:hidden;background:var(--bg)}
+.leaflet-container{font-family:inherit;background:var(--bg)}
+.leaflet-tooltip{background:var(--p2);color:var(--tx);border:1px solid var(--tick);box-shadow:0 0 18px -4px var(--ac);font-size:12.5px}
+.leaflet-tooltip-top:before{border-top-color:var(--tick)}
+.leaflet-control-zoom a{background:var(--p2)!important;color:var(--tx)!important;border-color:var(--ln)!important}
+.leaflet-control-attribution{background:color-mix(in srgb,var(--bg) 72%,transparent)!important;color:var(--mu)!important}.leaflet-control-attribution a{color:var(--ac)!important}
+.leaflet-interactive{cursor:pointer;filter:drop-shadow(0 0 6px currentColor)}
+.lbl span{position:absolute;transform:translate(-50%,-50%);font:600 11px 'Instrument Sans';color:var(--tx);text-shadow:0 0 4px var(--bg),0 0 8px var(--bg);pointer-events:none}
+#luar{margin-top:10px}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-water" viewBox="0 0 24 24"><path d="M12 3.2C9.4 6.5 6 9.9 6 14a6 6 0 0 0 12 0c0-4.1-3.4-7.5-6-10.8z"/><path d="M9.2 14.6a3 3 0 0 0 2.4 2.5"/></symbol>
+<symbol id="i-air" viewBox="0 0 24 24"><path d="M3 9h9.5a2.5 2.5 0 1 0-2.5-2.5"/><path d="M3 13.5h14a2.5 2.5 0 1 1-2.5 2.5"/><path d="M3 18h5"/></symbol>
+<symbol id="i-food" viewBox="0 0 24 24"><path d="M7 3v6.5M4 3v6.5a3 3 0 0 0 6 0V3M7 12.5V21"/><path d="M17 21V3c-2.4 1.6-3.5 4.6-3.5 8H17"/></symbol>
+<symbol id="i-flask" viewBox="0 0 24 24"><path d="M9.5 3h5M10.5 3v5.8L5 19a1.6 1.6 0 0 0 1.4 2.3h11.2A1.6 1.6 0 0 0 19 19l-5.5-10.2V3"/><path d="M7.8 15h8.4"/></symbol>
+</defs></svg>
 <header class="top"><div class="top-in">
   <div class="brand">
     <div class="mark"><div class="glyph" aria-hidden="true"><i></i><i></i><b></b></div>
-      <div><h1>Dasbor Laboratorium</h1><p class="mu sm" id="sub"></p></div></div>
+      <div><h1>Dasbor Laboratorium</h1><p class="mu sm" id="sub"></p><p class="mu sm" id="src"></p></div></div>
     <div class="ctl">
       <label class="btn p" title="File Kimia Air bulanan, atau file Udara (satu sheet per bulan)">Tambah data Excel<input type="file" id="up" accept=".xlsx,.xls" multiple hidden></label>
+      <button class="btn ghost" id="rf" hidden>Segarkan data</button>
       <button class="btn ghost" id="dl" hidden>Unduh data.js</button>
       <button class="btn ghost" id="th" aria-label="Ganti tema terang/gelap">Terang</button>
     </div>
@@ -132,13 +175,14 @@ main>*,.g>*{min-width:0}
     <canvas id="pz" role="img" aria-label="Sebaran sampel per tanggal masuk, per laboratorium"></canvas>
   </section>
   <section class="card" id="kpi"></section>
+  <section id="ins" aria-label="Temuan utama"></section>
   <section class="g g2">
     <div class="card"><h2>Tren bulanan</h2><p class="mu sm">Sampel MS dan TMS per bulan; garis kuning = persentase TMS</p><div class="ch"><canvas id="cT"></canvas></div></div>
     <div class="card"><h2>Ringkasan per matriks</h2><p class="mu sm">Proporsi mutu dan waktu uji (hari kerja) per jenis sampel</p><div class="tw"><table id="tM"></table></div></div>
   </section>
   <section class="g g3">
-    <div class="card"><h2>Sebaran wilayah</h2><p class="mu sm">Klik titik untuk memfilter. Posisi = perkiraan ibu kota kab/kota.</p>
-      <svg id="map" viewBox="0 0 430 350" role="img" aria-label="Peta sebaran sampel Sumatera Selatan" style="width:100%;max-height:360px;margin-top:6px"></svg>
+    <div class="card"><h2>Sebaran wilayah</h2><p class="mu sm">Peta Sumatera Selatan. Ukuran titik = jumlah sampel, warna = persentase TMS. Klik titik untuk memfilter, klik lagi untuk melepas.</p>
+      <div id="lmap" role="region" aria-label="Peta sebaran sampel Sumatera Selatan"></div><div id="luar"></div>
       <div class="leg sm mu"><span><i style="background:var(--ms)"></i>TMS di bawah 30%</span><span><i style="background:var(--wr)"></i>30–50%</span><span><i style="background:var(--tms)"></i>di atas 50%</span><span><i style="background:var(--na)"></i>tanpa sampel</span></div></div>
     <div class="card"><h2>Parameter yang paling sering melewati baku mutu</h2><p class="mu sm" id="pS">Jumlah sampel yang melanggar, per parameter</p><div class="ch" style="height:330px"><canvas id="cP"></canvas></div></div>
   </section>
@@ -164,7 +208,11 @@ const LABS=C.labs||{KIMIA:'Kimia Air & Makanan',UDARA:'Udara','UDARA-P':'Udara (
 const LC=r=>({KIMIA:'var(--lk)',UDARA:'var(--lu)','UDARA-P':'var(--lp)'})[lab(r)]||'var(--mu)';
 const inX=(r,x)=>x==='ALL'||lab(r)===x||(x==='@UD'&&lab(r).startsWith('UDARA'));
 const ev=r=>r.h==='MS'||r.h==='TMS',pros=r=>r.h==='N/A'&&r.pd.length>0;
+const MI=m=>/^AIR /.test(m)?['water','--ac']:m==='MAKANAN'?['food','--wr']:m==='NARKOBA'?['flask','--tms']:['air','--lu'];
+const mic=m=>{const[i,c]=MI(m);return `<span class="mi" style="--c:var(${c})"><svg class="ic"><use href="#i-${i}"/></svg></span>`};
 const GEO={'Palembang':[-2.99,104.76],'Banyuasin':[-2.65,104.45],'Musi Banyuasin':[-2.88,103.85],'Ogan Ilir':[-3.22,104.65],'OKI':[-3.45,104.98],'Prabumulih':[-3.43,104.24],'PALI':[-3.3,103.95],'Muara Enim':[-3.67,103.78],'Lahat':[-3.8,103.54],'Empat Lawang':[-3.8,102.95],'Musi Rawas':[-3.1,103.15],'Musi Rawas Utara':[-2.75,102.95],'Lubuklinggau':[-3.3,102.86],'Pagar Alam':[-4.02,103.26],'OKU':[-4.13,104.17],'OKU Timur':[-3.95,104.75],'OKU Selatan':[-4.52,104.05]};
+/* URL web app Google Apps Script (berakhiran /exec). Kosong = pakai data.js saja. Lihat README. */
+const API='';
 let R=D.records,RB=R,TV=[],CH={};
 const cv=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const inL=(r,l)=>l==='ALL'||r.l===l||(l==='@LUAR'&&C.luar.includes(r.l));
@@ -179,7 +227,7 @@ function fill(){const keep=[$('fX').value||'ALL',$('fB').value,$('fM').value,$('
   const lx=[...new Set(R.map(lab))],XO=[['ALL','Semua lab'],...Object.keys(LABS).filter(k=>lx.includes(k)).map(k=>[k,'Lab '+LABS[k]])];if(lx.filter(k=>k.startsWith('UDARA')).length>1)XO.splice(XO.findIndex(x=>x[0]==='UDARA'),0,['@UD','Lab Udara (semua)']);
   $('fX').innerHTML=XO.map(x=>`<option value="${x[0]}">${x[1]}</option>`).join('');if(XO.some(x=>x[0]===keep[0]))$('fX').value=keep[0];
   const SC={ALL:'var(--tx)',KIMIA:'var(--lk)','@UD':'var(--lu)',UDARA:'var(--lu)','UDARA-P':'var(--lp)'};
-  $('segX').innerHTML=XO.map(x=>`<button type="button" data-v="${x[0]}" aria-pressed="${x[0]===$('fX').value}"><span class="dot" style="--c:${SC[x[0]]}"></span>${x[1].replace(/^Lab /,'').replace('Semua lab','Semua')}</button>`).join('');const RX=R.filter(r=>inX(r,$('fX').value));
+  $('segX').innerHTML=XO.map(x=>`<button type="button" data-v="${x[0]}" aria-pressed="${x[0]===$('fX').value}">${x[0]==='ALL'?`<span class="dot" style="--c:${SC[x[0]]}"></span>`:`<svg class="ic" style="color:${SC[x[0]]}"><use href="#i-${x[0]==='KIMIA'?'flask':'air'}"/></svg>`}${x[1].replace(/^Lab /,'').replace('Semua lab','Semua')}</button>`).join('');const RX=R.filter(r=>inX(r,$('fX').value));
   const bs=[...new Set(R.map(r=>r.b))].sort(),ms=MX.filter(m=>RX.some(r=>r.m===m)),ls=[...new Set(RX.map(r=>r.l))].sort((a,b)=>(a==='Tidak Diketahui')-(b==='Tidak Diketahui')||a.localeCompare(b));
   const o=(a,f)=>a.map(x=>`<option value="${x[0]}">${x[1]}</option>`).join('');
   $('fB').innerHTML=o([['ALL','Semua periode'],...bs.map(b=>[b,lb(b)])]);$('fM').innerHTML=o([['ALL','Semua matriks'],...ms.map(m=>[m,m[0]+m.slice(1).toLowerCase()])]);
@@ -204,8 +252,8 @@ function render(){
    +kc('Terverifikasi',nf(vf),`${nf(a.length-vf)} belum diverifikasi`,'var(--ac)',a.length?100*vf/a.length:0);
   // ringkasan matriks
   $('tM').innerHTML='<tr><th>Matriks</th><th>Sampel</th><th>MS / TMS</th><th>TMS</th><th>TAT hari kerja</th></tr>'+MX.filter(x=>a.some(r=>r.m===x)).map(x=>{const z=a.filter(r=>r.m===x),e=z.filter(ev),s=e.filter(r=>r.h==='MS').length,t=z.map(tw).filter(v=>v!=null);
-    return `<tr><td>${x[0]+x.slice(1).toLowerCase()}</td><td>${nf(z.length)}</td><td><div class="mb"><i style="width:${e.length?100*s/e.length:0}%;background:var(--ms)"></i><i style="flex:1;background:var(--tms)"></i></div></td><td>${pc(e.length-s,e.length)}</td><td>${t.length?(t.reduce((p,q)=>p+q,0)/t.length).toFixed(1)+' hr':'-'}</td></tr>`}).join('');
-  pulse(b,m,l);charts(a,m,l);map(b,m,l);dq(a);table(a);
+    return `<tr><td>${mic(x)}${x[0]+x.slice(1).toLowerCase()}</td><td>${nf(z.length)}</td><td><div class="mb"><i style="width:${e.length?100*s/e.length:0}%;background:var(--ms)"></i><i style="flex:1;background:var(--tms)"></i></div></td><td>${pc(e.length-s,e.length)}</td><td>${t.length?(t.reduce((p,q)=>p+q,0)/t.length).toFixed(1)+' hr':'-'}</td></tr>`}).join('');
+  ins(a);pulse(b,m,l);charts(a,m,l);map(b,m,l);dq(a);table(a);
 }
 
 function mk(id,cfg){if(typeof Chart==='undefined')return;CH[id]&&CH[id].destroy();const t=cv('--mu'),g=cv('--ln');
@@ -224,13 +272,27 @@ function charts(a,m,l){
   const an=$('fA').value,A={};$('aT').textContent=an==='ALL'?'Beban kerja analis':'Beban kerja '+an+' per parameter';$('aS').textContent=an==='ALL'?'Jumlah hasil parameter yang dikerjakan per analis':'Jumlah hasil yang dikerjakan '+an+', dirinci per parameter';a.forEach(r=>r.pd.forEach(p=>{if(p[2]&&p[2]!=='-'){const k=an==='ALL'?p[2]:p[0];A[k]=(A[k]||0)+1}}));const ta=Object.entries(A).sort((x,y)=>y[1]-x[1]);
   mk('cA',{type:'bar',data:{labels:ta.map(x=>x[0]),datasets:[{label:'Hasil parameter',data:ta.map(x=>x[1]),backgroundColor:cv('--ac'),borderRadius:2,maxBarThickness:42}]},options:{plugins:{legend:{display:false}},scales:{x:{noGrid:1},y:{beginAtZero:true}}}})}
 
+function ins(a){const E=a.filter(ev),tally=(arr,k)=>{const o={};arr.forEach(r=>{const w=o[k(r)]=o[k(r)]||[0,0];w[0]++;if(r.h==='TMS')w[1]++});return Object.entries(o).filter(([n,v])=>v[0]>=10).map(([n,v])=>[n,v[1]/v[0],v[0]]).sort((x,y)=>y[1]-x[1])[0]};
+  const wl=tally(E.filter(r=>r.l!=='Tidak Diketahui'),r=>r.l),mt=tally(E,r=>r.m),P={},BM={};a.forEach(r=>{new Set(r.fl).forEach(f=>P[f]=(P[f]||0)+1);BM[r.b]=(BM[r.b]||0)+1});
+  const pm=Object.entries(P).sort((x,y)=>y[1]-x[1])[0],bm=Object.entries(BM).sort((x,y)=>y[1]-x[1])[0],c=(t,v,s,col)=>`<div class="in" style="--c:var(${col})"><span class="mu sm">${t}</span><b>${v}</b><span class="mu sm">${s}</span></div>`;
+  $('ins').innerHTML=[wl&&c('Wilayah dengan TMS tertinggi',wl[0],`${(100*wl[1]).toFixed(0)}% TMS dari ${nf(wl[2])} sampel`,'--tms'),mt&&c('Matriks paling bermasalah',mt[0][0]+mt[0].slice(1).toLowerCase(),`${(100*mt[1]).toFixed(0)}% TMS dari ${nf(mt[2])} sampel`,'--wr'),pm&&c('Parameter paling sering melanggar',pm[0],`${nf(pm[1])} sampel melewati baku mutu`,'--pr'),bm&&c('Bulan tersibuk',lb(bm[0]),`${nf(bm[1])} sampel masuk`,'--ac')].filter(Boolean).join('')}
+let LM=null,LT=null,LG=null,LTH=null;
 function map(b,m,l){
   const a=RB.filter(r=>(b==='ALL'||r.b===b)&&(m==='ALL'||r.m===m)),S={};
   a.forEach(r=>{const k=C.luar.includes(r.l)?'Luar Sumsel':r.l;(S[k]=S[k]||{n:0,t:0,e:0});S[k].n++;if(ev(r)){S[k].e++;if(r.h==='TMS')S[k].t++}});
-  const pts=Object.entries(GEO).map(([k,v])=>[k,20+(v[1]-102.6)*150,20+(-v[0]-2.5)*150]).concat([['Luar Sumsel',385,310]]);
-  $('map').innerHTML=pts.map(([k,x,y])=>{const s=S[k]||{n:0,t:0,e:0},rt=s.e?s.t/s.e:0,col=!s.n?cv('--na'):rt>.5?cv('--tms'):rt>.3?cv('--wr'):cv('--ms'),r=s.n?6+Math.min(14,Math.sqrt(s.n)*1.1):4,sel=l===k||(k==='Luar Sumsel'&&l==='@LUAR');
-    return `<g data-k="${k}"><title>${k}: ${s.n} sampel, TMS ${pc(s.t,s.e)}</title>${s.n?`<circle cx="${x}" cy="${y}" r="${r+5}" fill="${col}" opacity=".18"/>`:''}<circle cx="${x}" cy="${y}" r="${r}" fill="${col}" stroke="${sel?cv('--tx'):'none'}" stroke-width="2.5"/><text x="${x}" y="${y+r+11}" text-anchor="middle">${k}${s.n?' ('+s.n+')':''}</text></g>`}).join('')}
-$('map').onclick=e=>{const g=e.target.closest('g[data-k]');if(!g)return;let k=g.dataset.k;if(k==='Luar Sumsel')k='@LUAR';$('fL').value=$('fL').value===k?'ALL':k;render()};
+  if(typeof L==='undefined'){$('lmap').innerHTML='<p class="mu sm" style="padding:16px">Peta tidak dapat dimuat (perlu koneksi internet).</p>';return}
+  if(!LM){LM=L.map('lmap',{scrollWheelZoom:false,minZoom:6}).fitBounds([[-4.75,102.55],[-2.45,105.2]]);LG=L.layerGroup().addTo(LM)}
+  const th=document.documentElement.dataset.theme==='light'?'light':'dark';
+  if(LTH!==th){if(LT)LM.removeLayer(LT);LT=L.tileLayer(`https://{s}.basemaps.cartocdn.com/${th}_all/{z}/{x}/{y}{r}.png`,{subdomains:'abcd',maxZoom:12,attribution:'&copy; OpenStreetMap &copy; CARTO'}).addTo(LM);LT.bringToBack();LTH=th}
+  const pick=k=>{if([...$('fL').options].some(o=>o.value===k)){$('fL').value=$('fL').value===k?'ALL':k;render()}};
+  LG.clearLayers();
+  Object.entries(GEO).forEach(([k,v])=>{const s=S[k]||{n:0,t:0,e:0},rt=s.e?s.t/s.e:0,col=!s.n?cv('--na'):rt>.5?cv('--tms'):rt>.3?cv('--wr'):cv('--ms'),sel=l===k,r=s.n?9+Math.min(22,Math.sqrt(s.n)*2):5;
+    if(s.n)L.circleMarker(v,{radius:r+8,stroke:false,fillColor:col,fillOpacity:.18,interactive:false}).addTo(LG);
+    const c=L.circleMarker(v,{radius:r,color:sel?cv('--tx'):col,weight:sel?3:1.5,fillColor:col,fillOpacity:.72}).addTo(LG);
+    c.bindTooltip(`<b>${k}</b><br>${nf(s.n)} sampel, TMS ${pc(s.t,s.e)}`,{direction:'top',offset:[0,-r]});c.on('click',()=>pick(k));
+    if(s.n)L.marker(v,{icon:L.divIcon({className:'lbl',html:`<span>${s.n}</span>`,iconSize:[0,0]}),interactive:false}).addTo(LG)});
+  const lx=S['Luar Sumsel'];$('luar').innerHTML=lx?`<button class="btn ghost" data-k="@LUAR">Luar Sumsel: ${nf(lx.n)} sampel, TMS ${pc(lx.t,lx.e)}</button>`:'';
+  $('luar').onclick=e=>{if(e.target.closest('button'))pick('@LUAR')};setTimeout(()=>LM.invalidateSize(),0)}
 
 function dq(a){const n=a.filter(r=>r.l==='Tidak Diketahui'),es=a.filter(r=>r.hs==='auto'&&r.h!=='N/A'),fx=a.filter(r=>r.dq===1),bad=a.filter(r=>r.dq===2),pe=a.filter(r=>r.h==='N/A'&&!r.pd.length),pr=a.filter(pros);
   const mn=[...new Set(n.map(r=>BS[+r.b.slice(5)-1]))].join(', ');
@@ -244,9 +306,9 @@ $('dq').onclick=e=>{const x=e.target.closest('button');if(!x)return;$('tF').valu
 function table(a){const f=$('tF').value,q=$('q').value.toLowerCase().trim();
   TV=a.filter(r=>(f==='ALL'||(f==='EST'?r.hs==='auto'&&r.h!=='N/A':f==='DQ'?r.dq>0:f==='PEND'?r.h==='N/A'&&!r.pd.length:f==='PROS'?pros(r):r.h===f))&&(!q||(r.s+' '+r.sppc+' '+r.l+' '+r.m+' '+labN(r)+' '+(r.ket||'')).toLowerCase().includes(q)));
   $('tc').textContent=`Menampilkan ${nf(Math.min(TV.length,300))} dari ${nf(TV.length)} sampel. Klik baris untuk melihat rincian.`;
-  $('tb').innerHTML=TV.slice(0,300).map((r,i)=>`<tr class="c" data-i="${i}"><td><b>${r.s}</b></td><td>${r.sppc}</td><td>${lb(r.b)}</td><td><span class="lt" style="--c:${LC(r)}">${({KIMIA:'Kimia',UDARA:'Udara','UDARA-P':'Program'})[lab(r)]||labN(r)}</span></td><td>${r.m[0]+r.m.slice(1).toLowerCase()}${r.ket?`<div class="mu sm">${r.ket}</div>`:''}</td><td>${r.l}</td><td>${lab(r)==='KIMIA'?fd(r.in)+' → '+fd(r.out):fd(r.in)+' · deadline '+fd(r.dl)}${r.dq?' <span class="fl" title="Tanggal asli: '+r.dr.join(' → ')+'">'+(r.dq===1?'diperbaiki':'cek')+'</span>':''}</td><td>${tw(r)!=null?tw(r)+' hr':'-'}</td><td>${bd(r)}</td><td>${r.fl.length?[...new Set(r.fl)].map(x=>`<span class="fl">${x}</span>`).join(''):'<span class="mu">-</span>'}</td></tr>`).join('')}
+  $('tb').innerHTML=TV.slice(0,300).map((r,i)=>`<tr class="c" data-i="${i}"><td><b>${r.s}</b></td><td>${r.sppc}</td><td>${lb(r.b)}</td><td><span class="lt" style="--c:${LC(r)}">${({KIMIA:'Kimia',UDARA:'Udara','UDARA-P':'Program'})[lab(r)]||labN(r)}</span></td><td>${mic(r.m)}${r.m[0]+r.m.slice(1).toLowerCase()}${r.ket?`<div class="mu sm">${r.ket}</div>`:''}</td><td>${r.l}</td><td>${lab(r)==='KIMIA'?fd(r.in)+' → '+fd(r.out):fd(r.in)+' · deadline '+fd(r.dl)}${r.dq?' <span class="fl" title="Tanggal asli: '+r.dr.join(' → ')+'">'+(r.dq===1?'diperbaiki':'cek')+'</span>':''}</td><td>${tw(r)!=null?tw(r)+' hr':'-'}</td><td>${bd(r)}</td><td>${r.fl.length?[...new Set(r.fl)].map(x=>`<span class="fl">${x}</span>`).join(''):'<span class="mu">-</span>'}</td></tr>`).join('')}
 $('tb').onclick=e=>{const t=e.target.closest('tr');if(!t)return;const r=TV[+t.dataset.i];
-  $('dt').textContent=`${r.s} · ${r.m[0]+r.m.slice(1).toLowerCase()}`;$('ds').textContent=lab(r)==='KIMIA'?`Lab ${labN(r)} · SPPC ${r.sppc} · ${r.l} · masuk ${r.in||'-'} · keluar ${r.out||'-'} · ${r.st==='SUDAH'?'sudah':'belum'} verifikasi`:`Lab ${labN(r)} · No Lab ${r.sppc} · ${r.l} · pengambilan ${r.tk||'-'} · diterima ${r.in||'-'} · deadline ${r.dl||'-'} · ${r.st==='SUDAH'?'sudah':'belum'} verifikasi${r.ket?' · '+r.ket:''}`;
+  $('dt').innerHTML=mic(r.m)+`${r.s} · ${r.m[0]+r.m.slice(1).toLowerCase()}`;$('ds').textContent=lab(r)==='KIMIA'?`Lab ${labN(r)} · SPPC ${r.sppc} · ${r.l} · masuk ${r.in||'-'} · keluar ${r.out||'-'} · ${r.st==='SUDAH'?'sudah':'belum'} verifikasi`:`Lab ${labN(r)} · No Lab ${r.sppc} · ${r.l} · pengambilan ${r.tk||'-'} · diterima ${r.in||'-'} · deadline ${r.dl||'-'} · ${r.st==='SUDAH'?'sudah':'belum'} verifikasi${r.ket?' · '+r.ket:''}`;
   $('dn').innerHTML=bd(r)+(r.dq?` <span class="mu">Tanggal di file: ${r.dr.join(' → ')}</span>`:'');
   $('dp').innerHTML=r.pd.length?r.pd.map(p=>`<div class="pi ${p[3]?'o':''}"><div><b>${p[0]}</b><div class="mu sm">Analis: ${p[2]}</div></div><b>${p[1]}</b></div>`).join(''):'<p class="mu">Belum ada hasil uji.</p>';dg.showModal()};
 $('csv').onclick=()=>{const q=v=>'"'+String(v??'').replace(/"/g,'""')+'"',h=['Periode','Lab','Matriks','SPPC/No Lab','No Sampel','Lokasi','Masuk/Diterima','Keluar','Deadline','TAT hari kerja','Status','Hasil','Sumber hasil','Parameter melewati baku mutu','Keterangan'];
@@ -258,11 +320,13 @@ function dl_(n,t,ty){const a=document.createElement('a');a.href=URL.createObject
 const nt=v=>{if(v==null)return null;const s=String(v).trim();return s||null},nid=v=>typeof v==='number'&&Number.isInteger(v)?String(v):(nt(v)||'').replace(/^U\.\s+/,'U.')||null;
 const LR=C.loc.map(([p,n])=>[new RegExp(p),n]),iso=d=>d.toISOString().slice(0,10),df=(a,b)=>Math.round((Date.parse(b)-Date.parse(a))/864e5);
 const cloc=v=>{const s=nt(v);if(!s)return null;const u=s.toUpperCase().replace(/\s+/g,' ');for(const[r,n]of LR)if(r.test(u))return n;return s.replace(/\w\S*/g,w=>w[0].toUpperCase()+w.slice(1).toLowerCase())};
-function cdate(v){if(v==null)return null;let d,m;if(typeof v==='number')d=new Date(Date.UTC(1899,11,30)+v*864e5);else{const s=String(v).trim();if(m=s.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})$/)||s.match(/^(\d{1,2})\/(\d{2})(\d{4})$/))d=new Date(Date.UTC(+m[3],m[2]-1,+m[1]));else if(m=s.match(/^(\d{4})-(\d{2})-(\d{2})/))d=new Date(Date.UTC(+m[1],m[2]-1,+m[3]));else return null}
-  const y=d.getUTCFullYear();return isNaN(d)||y<2000||y>2100?null:iso(d)}
+const mkd=(y,m,d)=>{const t=new Date(Date.UTC(y,m-1,d));return t.getUTCMonth()===m-1&&t.getUTCDate()===d?t:null};
+function cdate(v){if(v==null)return null;let d,m;if(typeof v==='number')d=new Date(Date.UTC(1899,11,30)+v*864e5);else{const s=String(v).trim();if(m=s.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})$/)||s.match(/^(\d{1,2})\/(\d{2})(\d{4})$/))d=mkd(+m[3],+m[2],+m[1])||mkd(+m[3],+m[1],+m[2]);else if(m=s.match(/^(\d{4})-(\d{2})-(\d{2})/))d=new Date(Date.UTC(+m[1],m[2]-1,+m[3]));else return null}
+  if(!d||isNaN(d))return null;const y=d.getUTCFullYear();return y<2000||y>2100?null:iso(d)}
 const wy=(s,y)=>{const d=new Date(s+'T00:00:00Z');d.setUTCFullYear(y);return iso(d)};
 function rd(a,b){if(!a||!b)return[a,b,null,0];let t=df(a,b);if(t>=0&&t<=60)return[a,b,t,0];const Y=C.year;for(const ya of[Y,+a.slice(0,4)])for(const yb of[Y,Y+1,+b.slice(0,4)]){const a2=wy(a,ya),b2=wy(b,yb),t2=df(a2,b2);if(t2>=0&&t2<=60&&(a2!==a||b2!==b))return[a2,b2,t2,1]}return[a,b,null,2]}
 const kof=n=>{const t=n.trim(),m=t.match(/\(([^)]+)\)\s*$/);return C.alias[t.toLowerCase()]||(m?m[1].replace(/ /g,''):t)},pn=v=>{const m=String(v).replace(',','.').match(/[-+]?\d*\.?\d+/);return m?parseFloat(m[0]):null};
+const dmy=d=>typeof Utilities!=='undefined'?Utilities.formatDate(d,TZ,'d.M'):d.getDate()+'.'+(d.getMonth()+1);
 function psheet(rows,mx,per){const M={},K={'NO SPPC':'sppc','LOKASI':'lok','TANGGAL MASUK':'in','TANGGAL KELUAR':'out','STATUS':'st','NO SAMPEL':'s','INTERPRESTASI HASIL':'ip','INTERPRETASI HASIL':'ip'};
   rows.forEach((r,i)=>{for(let c=0;c<Math.min(6,r.length);c++){const t=nt(r[c]),k=t&&K[t.toUpperCase().replace(/\s+/g,' ')];if(k&&!M[k])M[k]=[i,c]}});
   if(!M.s||!M.sppc)return[];const me=Math.max(...Object.values(M).map(v=>v[0]));let end=rows.length;
@@ -272,7 +336,7 @@ function psheet(rows,mx,per){const M={},K={'NO SPPC':'sppc','LOKASI':'lok','TANG
   for(let c=M.s[1]+1;c<W;c++){const s=nid(g('s',c));if(!s)continue;const sp=nid(g('sppc',c));
     if(sp)cu={sppc:sp,lok:cloc(g('lok',c)),i:cdate(g('in',c)),o:cdate(g('out',c))};else{cu.lok=cloc(g('lok',c))||cu.lok;cu.i=cdate(g('in',c))||cu.i;cu.o=cdate(g('out',c))||cu.o}
     if(/^\d+$/.test(s)&&!cu.i&&!cu.o)continue;
-    const pd=[],fl=[];for(const[i,n,a]of P){const raw=rows[i][c];if(raw==null||(typeof raw==='string'&&!raw.trim()))continue;
+    const pd=[],fl=[];for(const[i,n,a]of P){const raw=rows[i][c];if(raw==null||(typeof raw==='string'&&!raw.trim()))continue;if(raw instanceof Date){pd.push([n,dmy(raw)+' (cek)',a,0]);continue}
       const val=typeof raw==='number'?String(Number.isInteger(raw)?raw:+raw.toPrecision(6)):String(raw).trim();let o=0;
       if(mx==='MAKANAN'||mx==='NARKOBA'){if(/positif/i.test(val)&&!/negatif/i.test(val))o=1}
       else{const ru=rl[kof(n)];if(ru&&!val.startsWith('<')){const x=typeof raw==='number'?raw:pn(val);if(x!=null&&((ru[0]!=null&&x<ru[0])||(ru[1]!=null&&x>ru[1])))o=1}}
@@ -359,6 +423,14 @@ const sth=t=>{document.documentElement.dataset.theme=t;$('th').textContent=t==='
 try{sth(localStorage.getItem('th')||'dark')}catch(e){}
 $('th').onclick=()=>{sth(document.documentElement.dataset.theme==='dark'?'light':'dark');render()};
 fill();render();
+/* ===== Data langsung dari Google Sheets (lewat Apps Script); data.js jadi cadangan bila gagal ===== */
+async function muat(force){if(!API)return;const st=$('src'),rf=$('rf');st.textContent='Memuat data dari Google Sheets…';rf.disabled=true;
+  try{const j=await(await fetch(API+(API.includes('?')?'&':'?')+(force?'refresh=1&':'')+'t='+Date.now())).json();if(!j.records)throw new Error(j.error||'format tidak dikenal');
+    D.records=R=j.records;D.generated=j.generated;fill();render();$('dl').hidden=true;
+    st.textContent='Sumber: Google Sheets, diperbarui '+j.generated+(j.errors&&j.errors.length?'. '+j.errors.length+' file gagal dibaca: '+j.errors.join(' | '):'')}
+  catch(e){st.textContent='Google Sheets tidak terbaca ('+e.message+'). Menampilkan data tersimpan per '+(D.generated||'-')}
+  rf.disabled=false}
+$('rf').hidden=!API;$('rf').onclick=()=>muat(true);muat();if(API)setInterval(()=>muat(),3e5);
 if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>render());
 </script>
 </body>
