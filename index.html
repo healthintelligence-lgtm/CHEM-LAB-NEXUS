@@ -713,4 +713,128 @@ $('tb').onclick=e=>{
   $('dt').innerHTML=mic(r.m)+`${r.s} · ${r.m[0]+r.m.slice(1).toLowerCase()}`;
   $('ds').textContent=lab(r)==='KIMIA'?`Lab ${labN(r)} · SPPC ${r.sppc} · ${r.l} · masuk ${r.in||'-'} · keluar ${r.out||'-'} · ${r.st==='SUDAH'?'sudah':'belum'} verifikasi`:`Lab ${labN(r)} · No Lab ${r.sppc} · ${r.l} · pengambilan ${r.tk||'-'} · diterima ${r.in||'-'} · deadline ${r.dl||'-'} · ${r.st==='SUDAH'?'sudah':'belum'} verifikasi${r.ket?' · '+r.ket:''}`;
   $('dn').innerHTML=bd(r)+(r.dq?` <span class="mu">Tanggal di file: ${r.dr.join(' → ')}</span>`:'');
-  $('dp').innerHTML=
+  $('dp').innerHTML=r.pd.length?r.pd.map(p=>`<div class="pi ${p[3]?'o':''}"><div><b>${p[0]}</b><div class="mu sm">Analis: ${p[2]}</div></div><b>${p[1]}</b></div>`).join(''):'<p class="mu">Belum ada hasil uji.</p>';dg.showModal()};
+$('csv').onclick=()=>{const q=v=>'"'+String(v??'').replace(/"/g,'""')+'"',h=['Periode','Lab','Matriks','SPPC/No Lab','No Sampel','Lokasi','Masuk/Diterima','Keluar','Deadline','TAT hari kerja','Status','Hasil','Sumber hasil','Parameter melewati baku mutu','Keterangan'];
+  const rows=TV.map(r=>[r.b,labN(r),r.m,r.sppc,r.s,r.l,r.in,r.out,r.dl,tw(r),r.st,pros(r)?'PROSES':r.h,r.h==='N/A'?'-':r.hs==='auto'?'estimasi':'file',[...new Set(r.fl)].join('; '),r.ket].map(q).join(','));
+  dl_('daftar-sampel.csv','\ufeff'+h.join(',')+'\n'+rows.join('\n'),'text/csv')};
+function dl_(n,t,ty){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:ty}));a.download=n;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),999)}
+
+/* ===== Upload Excel di browser (aturan sama dengan build_data.py) ===== */
+const nt=v=>{if(v==null)return null;const s=String(v).trim();return s||null},nid=v=>typeof v==='number'&&Number.isInteger(v)?String(v):(nt(v)||'').replace(/^U\.\s+/,'U.')||null;
+const LR=C.loc.map(([p,n])=>[new RegExp(p),n]),iso=d=>d.toISOString().slice(0,10),df=(a,b)=>Math.round((Date.parse(b)-Date.parse(a))/864e5);
+const cloc=v=>{const s=nt(v);if(!s)return null;const u=s.toUpperCase().replace(/\s+/g,' ');for(const[r,n]of LR)if(r.test(u))return n;return s.replace(/\w\S*/g,w=>w[0].toUpperCase()+w.slice(1).toLowerCase())};
+const mkd=(y,m,d)=>{const t=new Date(Date.UTC(y,m-1,d));return t.getUTCMonth()===m-1&&t.getUTCDate()===d?t:null};
+function cdate(v){if(v==null)return null;let d,m;if(typeof v==='number')d=new Date(Date.UTC(1899,11,30)+v*864e5);else{const s=String(v).trim();if(m=s.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})$/)||s.match(/^(\d{1,2})\/(\d{2})(\d{4})$/))d=mkd(+m[3],+m[2],+m[1])||mkd(+m[3],+m[1],+m[2]);else if(m=s.match(/^(\d{4})-(\d{2})-(\d{2})/))d=new Date(Date.UTC(+m[1],m[2]-1,+m[3]));else return null}
+  if(!d||isNaN(d))return null;const y=d.getUTCFullYear();return y<2000||y>2100?null:iso(d)}
+const wy=(s,y)=>{const d=new Date(s+'T00:00:00Z');d.setUTCFullYear(y);return iso(d)};
+function rd(a,b){if(!a||!b)return[a,b,null,0];let t=df(a,b);if(t>=0&&t<=60)return[a,b,t,0];const Y=C.year;for(const ya of[Y,+a.slice(0,4)])for(const yb of[Y,Y+1,+b.slice(0,4)]){const a2=wy(a,ya),b2=wy(b,yb),t2=df(a2,b2);if(t2>=0&&t2<=60&&(a2!==a||b2!==b))return[a2,b2,t2,1]}return[a,b,null,2]}
+const kof=n=>{const t=n.trim(),m=t.match(/\(([^)]+)\)\s*$/);return C.alias[t.toLowerCase()]||(m?m[1].replace(/ /g,''):t)},pn=v=>{const m=String(v).replace(',','.').match(/[-+]?\d*\.?\d+/);return m?parseFloat(m[0]):null};
+const dmy=d=>typeof Utilities!=='undefined'?Utilities.formatDate(d,TZ,'d.M'):d.getDate()+'.'+(d.getMonth()+1);
+function psheet(rows,mx,per){const M={},K={'NO SPPC':'sppc','LOKASI':'lok','TANGGAL MASUK':'in','TANGGAL KELUAR':'out','STATUS':'st','NO SAMPEL':'s','INTERPRESTASI HASIL':'ip','INTERPRETASI HASIL':'ip'};
+  rows.forEach((r,i)=>{for(let c=0;c<Math.min(6,r.length);c++){const t=nt(r[c]),k=t&&K[t.toUpperCase().replace(/\s+/g,' ')];if(k&&!M[k])M[k]=[i,c]}});
+  if(!M.s||!M.sppc)return[];const me=Math.max(...Object.values(M).map(v=>v[0]));let end=rows.length;
+  for(let i=me+1;i<rows.length;i++)if(rows[i].slice(0,4).some(x=>x&&String(x).includes('Kepala Instalasi'))){end=i;break}
+  const P=[];for(let i=me+1;i<end;i++){const n=nt(rows[i][1]);if(n&&!/^[A-C]\.\s/.test(n))P.push([i,n,nt(rows[i][2])||'-'])}
+  const W=Math.max(...rows.map(r=>r.length)),g=(k,c)=>M[k]?rows[M[k][0]][c]:null,rl=C.rules[mx]||{},out=[];let cu={sppc:'-',lok:null,i:null,o:null};
+  for(let c=M.s[1]+1;c<W;c++){const s=nid(g('s',c));if(!s)continue;const sp=nid(g('sppc',c));
+    if(sp)cu={sppc:sp,lok:cloc(g('lok',c)),i:cdate(g('in',c)),o:cdate(g('out',c))};else{cu.lok=cloc(g('lok',c))||cu.lok;cu.i=cdate(g('in',c))||cu.i;cu.o=cdate(g('out',c))||cu.o}
+    if(/^\d+$/.test(s)&&!cu.i&&!cu.o)continue;
+    const pd=[],fl=[];for(const[i,n,a]of P){const raw=rows[i][c];if(raw==null||(typeof raw==='string'&&!raw.trim()))continue;if(raw instanceof Date){pd.push([n,dmy(raw)+' (cek)',a,0]);continue}
+      const val=typeof raw==='number'?String(Number.isInteger(raw)?raw:+raw.toPrecision(6)):String(raw).trim();let o=0;
+      if(mx==='MAKANAN'||mx==='NARKOBA'){if(/positif/i.test(val)&&!/negatif/i.test(val))o=1}
+      else{const ru=rl[kof(n)];if(ru&&!val.startsWith('<')){const x=typeof raw==='number'?raw:pn(val);if(x!=null&&((ru[0]!=null&&x<ru[0])||(ru[1]!=null&&x>ru[1])))o=1}}
+      if(o)fl.push(n);pd.push([n,val,a,o])}
+    const ip=(nt(g('ip',c))||'').toUpperCase(),hs=ip==='MS'||ip==='TMS'?'file':'auto',au=pd.length?(fl.length?'TMS':'MS'):'N/A',[di,dO,tat,dqq]=rd(cu.i,cu.o);
+    out.push({b:per,m:mx,sppc:cu.sppc,s,l:cu.lok||'Tidak Diketahui',in:di,out:dO,tat,dq:dqq,dr:dqq?[cu.i,cu.o]:null,st:/SUDAH/i.test(nt(g('st',c))||'')?'SUDAH':'BELUM',h:hs==='file'?ip:au,hs,auto:au,fl,pd})}
+  return out}
+/* ----- Lab Udara: satu sheet per bulan (aturan sama dengan parse_udara_sheet di build_data.py) ----- */
+const BLID=BLN.map(x=>x.toLowerCase()),SEK=C.seksi||{},AU=C.analisU||{};
+const ukey=n=>{let t=n.trim().toLowerCase();const m=t.match(/\(([^)]+)\)\s*$/);if(m)t=m[1];return t.replace(/[^a-z0-9]/g,'')};
+const dci=d=>iso(new Date(Date.UTC(d.y,d.m-1,d.d))),uid=v=>v&&v.dc?(v.dc.d===1?v.dc.y+'.'+v.dc.m:dci(v.dc)):nid(v);
+/* sel hasil yang terbaca sebagai tanggal: 30/01/1900 -> 30.5 ; '31.3' -> 31/03 -> '31.3 (cek)' ; format yyyy.m -> '2114.9 (cek)' */
+const uval=v=>{if(v&&v.dc){const d=v.dc;return d.y===1900?String(+(+v.v.toFixed(4)).toPrecision(6)):d.d===1&&d.y!==C.year?`${d.y}.${d.m} (cek)`:`${d.d}.${d.m} (cek)`}return typeof v==='number'?String(Number.isInteger(v)?v:+v.toPrecision(6)):String(v).trim()};
+const urows=ws=>{const E=XLSX.utils,rg=E.decode_range(ws['!ref']||'A1'),out=[];for(let r=0;r<=Math.min(rg.e.r,79);r++){const row=[];for(let c=0;c<=rg.e.c;c++){const x=ws[E.encode_cell({r,c})];let v=null;
+  if(x){if(x.t==='e')v=x.w||'#ERR';else if(x.t==='n'&&x.z&&XLSX.SSF.is_date(x.z))v={dc:XLSX.SSF.parse_date_code(x.v),v:x.v};else if(x.t==='d'){const d=x.v;v={dc:{y:d.getFullYear(),m:d.getMonth()+1,d:d.getDate()},v:null}}else v=x.v}row.push(v)}out.push(row)}return out};
+const idd=v=>{if(v&&v.dc)return dci(v.dc);if(v==null||typeof v==='number')return cdate(v);const s=String(v).trim().toLowerCase().replace(/\s+/g,' '),m=s.match(/(\d{1,2}) ?([a-z]+) ?(\d{4})$/);if(m&&BLID.includes(m[2])){const d=new Date(Date.UTC(+m[3],BLID.indexOf(m[2]),+m[1]));return isNaN(d)?null:iso(d)}return cdate(v)};
+const UM=[['LOKASI','lok'],['TANGGAL PENGAMBILAN','tk'],['TANGGAL DITERIMA','in'],['DEADLINE','dl'],['STATUS VERIFIKASI','st'],['TANGGAL VERIFIKASI','st'],['KESIMPULAN','ks']];
+function pudara(rows,per,lb_){const M={};rows.slice(0,15).forEach((r,i)=>{const t=nt(r[0]);if(!t)return;const u=t.toUpperCase().replace(/\s+/g,' ');for(const[p,k]of UM)if(u.startsWith(p)&&M[k]==null)M[k]=i});
+  if(!Object.keys(M).length)return[];const sr=Math.min(...Object.values(M))-1,pr=sr-1;if(pr<0)return[];
+  const P=[];let sec=null,kr=null;for(let i=sr+1;i<rows.length;i++){const r=rows[i],a=nt(r[0]),b=nt(r[1]),c=nt(r[2]);if(a&&/KETERANGAN/i.test(a)){kr=i;break}
+    if(a&&b&&a.length<=2){sec=SEK[b.toUpperCase().replace(/\s+/g,' ')]||null;continue}if(sec&&c)P.push([i,sec,c,AU[ukey(c)]||'-'])}
+  const W=Math.max(...rows.map(r=>r.length)),ce=(i,c)=>i==null||!rows[i]?null:rows[i][c],g_=(k,c)=>ce(M[k],c),G=[];let g=null;
+  for(let c=3;c<W;c++){const s=uid(ce(sr,c)),sp=uid(ce(pr,c));if((s&&s[0]==='#')||(sp&&sp[0]==='#'))continue;
+    if(sp||!g){g={sppc:sp||'-',cols:[],lok:null,tk:null,in:null,dl:null,st:null};G.push(g)}if(!s)continue;g.cols.push([c,s]);
+    for(const k of['lok','tk','in','dl','st'])if(g[k]==null&&nt(g_(k,c)))g[k]=g_(k,c)}
+  const out=[];for(const g of G){if(!(g.lok||g.tk||g.in||g.st))continue;const tk=g.tk&&g.tk.dc?dci(g.tk.dc):typeof g.tk==='number'?cdate(g.tk):nt(g.tk),gi=idd(g.in),gd=idd(g.dl);
+    for(const[c,s]of g.cols){const st=nt(g_('st',c))||nt(g.st)||'',sc={},pl=[];
+      for(const[i,se,n,an]of P){const raw=ce(i,c);if(raw==null||(typeof raw==='string'&&!raw.trim()))continue;sc[se]=(sc[se]||0)+1;pl.push([n,uval(raw),an,se])}
+      const mx=Object.entries(sc).sort((x,y)=>y[1]-x[1])[0]?.[0]||'UDARA (BELUM ADA HASIL)',ks=(nt(g_('ks',c))||'').toUpperCase(),ok=ks==='MS'||ks==='TMS';
+      const ket=[nt(ce(kr,c)),nt(ce(kr==null?null:kr+1,c))].filter(Boolean).join(' / ');
+      out.push({lab:lb_,b:per,m:mx,sppc:g.sppc,s,l:cloc(g_('lok',c))||cloc(g.lok)||'Tidak Diketahui',in:gi,out:null,tat:null,dq:0,dr:null,dl:gd,tk,ket:ket||null,st:/SUDAH/i.test(st)?'SUDAH':'BELUM',
+        h:ok?ks:'N/A',hs:ok?'file':'auto',auto:'N/A',fl:[],pd:pl.map(([n,v,an,se])=>[se===mx?n:n+' ['+se.toLowerCase().replace(/\b\w/g,x=>x.toUpperCase())+']',v,an,0])})}}
+  return out}
+$('up').onchange=async e=>{const add=[],keys=new Set(),bad=[],info=[];
+  for(const f of e.target.files){try{const wb=XLSX.read(await f.arrayBuffer(),{type:'array',cellNF:true}),ms=wb.SheetNames.filter(n=>BLID.includes(n.trim().toLowerCase()));
+    if(ms.length){/* file Lab Udara */const lb_=/PROGRAM/i.test(f.name)?'UDARA-P':'UDARA';let n=0;
+      ms.forEach(sn=>{const p=C.year+'-'+String(BLID.indexOf(sn.trim().toLowerCase())+1).padStart(2,'0'),rs=pudara(urows(wb.Sheets[sn]),p,lb_);add.push(...rs);n+=rs.length;keys.add(lb_+'|'+p)});
+      info.push(`${f.name}: ${n} sampel Lab ${LABS[lb_]}`);continue}
+    const mi=BLN.findIndex(x=>f.name.toUpperCase().includes(x));if(mi<0)throw'nama file harus memuat nama bulan (file Kimia) atau berisi sheet per bulan (file Udara)';const p=C.year+'-'+String(mi+1).padStart(2,'0');let n=0;
+    wb.SheetNames.forEach(sn=>{const mx=sn.trim().toUpperCase();if(MX.includes(mx)){const rs=psheet(XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:null}).slice(0,120),mx,p);rs.forEach(r=>r.lab='KIMIA');add.push(...rs);n+=rs.length}});keys.add('KIMIA|'+p);info.push(`${f.name}: ${n} sampel Lab Kimia (${lb(p)})`)}catch(x){bad.push(f.name+': '+x)}}
+  if(keys.size){R=R.filter(r=>!keys.has(lab(r)+'|'+r.b)).concat(add).sort((a,b)=>a.b<b.b?-1:a.b>b.b?1:0);D.records=R;D.generated=new Date().toISOString().slice(0,16).replace('T',' ');fill();render();$('dl').hidden=false}
+  alert((keys.size?`Berhasil memuat:\n${info.join('\n')}\n\nData lab & bulan yang sama sudah diganti. Untuk membuatnya permanen: klik "Unduh data.js", lalu ganti file data.js di repositori dan deploy ulang.`:'Tidak ada data yang dimuat.')+(bad.length?'\n\nGagal:\n'+bad.join('\n'):''));e.target.value=''};
+$('dl').onclick=()=>dl_('data.js','window.LAB_DATA='+JSON.stringify(D)+';','text/javascript');
+
+$('fX').onchange=()=>{fill();render()};$('segX').onclick=e=>{const x=e.target.closest('button');if(!x)return;$('fX').value=x.dataset.v;fill();render()};
+/* ===== Denyut sampel: satu garis per sampel pada tanggal masuk, satu baris per lab ===== */
+let PZ=null,PZfirst=true;
+const pdate=r=>r.in||(r.tk&&/^\d{4}-\d\d-\d\d$/.test(r.tk)?r.tk:null)||r.b+'-15';
+function pulse(b,m,l){const cv_=$('pz'),W=cv_.clientWidth,H=cv_.clientHeight,dpr=window.devicePixelRatio||1;cv_.width=W*dpr;cv_.height=H*dpr;const x=cv_.getContext('2d');x.scale(dpr,dpr);
+  const Y=C.year,t0=Date.UTC(Y,0,1),t1=Date.UTC(Y+1,0,1),L=88,Rr=8,ax=20,a=RB.filter(r=>(m==='ALL'||r.m===m)&&inL(r,l));
+  const labs=Object.keys(LABS).filter(k=>a.some(r=>lab(r)===k)),rh=labs.length?(H-ax-6)/labs.length:0,xs=t=>L+(t-t0)/(t1-t0)*(W-L-Rr);
+  const col={MS:cv('--ms'),TMS:cv('--tms'),PR:cv('--pr'),NA:cv('--na')},cs=r=>pros(r)?'PR':r.h==='N/A'?'NA':r.h,day={};
+  PZ={labs,rh,xs,t0,t1,L,Rr,W,day};
+  const draw=prog=>{x.clearRect(0,0,W,H);const lim=L+(W-L-Rr)*prog;
+    // bulan
+    for(let i=0;i<12;i++){const xa=xs(Date.UTC(Y,i,1)),xb=xs(Date.UTC(Y,i+1,1)),sel=b===Y+'-'+String(i+1).padStart(2,'0');
+      if(sel){x.fillStyle=cv('--p2');x.fillRect(xa,0,xb-xa,H-ax)}
+      x.strokeStyle=cv('--ln');x.lineWidth=1;x.beginPath();x.moveTo(Math.round(xa)+.5,0);x.lineTo(Math.round(xa)+.5,H-ax+4);x.stroke();
+      x.fillStyle=sel?cv('--tx'):cv('--mu');x.font="500 11px 'Instrument Sans'";x.fillText(BS[i],xa+5,H-5)}
+    labs.forEach((k,i)=>{const y0=i*rh+3,cy=y0+rh/2;x.fillStyle=cv('--mu');x.font="500 12px 'Instrument Sans'";
+      x.fillText(LABS[k].replace(' & Makanan',''),0,cy+4);x.font="400 10.5px 'Instrument Sans'";x.fillStyle=cv('--ms');x.fillText('MS ▲',0,cy-10);x.fillStyle=cv('--tms');x.fillText('TMS ▼',0,cy+18);x.strokeStyle=cv('--ln');x.setLineDash([2,4]);x.beginPath();x.moveTo(L,Math.round(cy)+.5);x.lineTo(W-Rr,Math.round(cy)+.5);x.stroke();x.setLineDash([]);
+      const agg={};for(const r of a){if(lab(r)!==k)continue;const t=Date.parse(pdate(r));if(!(t>=t0&&t<t1))continue;const dd=Math.floor((t-t0)/864e5);(agg[dd]=agg[dd]||{MS:0,TMS:0,PR:0,NA:0})[cs(r)]++}
+      Object.entries(agg).forEach(([dd,v])=>day[k+'|'+dd]=v);
+      const mx=Math.max(1,...Object.values(agg).map(v=>Math.max(v.MS+v.PR+v.NA,v.TMS))),hh=rh/2-4,sc=n=>n?Math.max(1.5,Math.sqrt(n/mx)*hh):0,bw=Math.max(1.5,(W-L-Rr)/365-1);
+      for(const[dd,v]of Object.entries(agg)){const xx=xs(t0+(+dd+.5)*864e5)-bw/2;if(xx>lim)continue;let up=0;
+        for(const z of['MS','PR','NA']){if(!v[z])continue;const tot=sc(v.MS+v.PR+v.NA),h=tot*v[z]/(v.MS+v.PR+v.NA);x.fillStyle=col[z];x.fillRect(xx,cy-1-up-h,bw,h);up+=h}
+        if(v.TMS){x.fillStyle=col.TMS;x.fillRect(xx,cy+1,bw,sc(v.TMS))}}
+      x.globalAlpha=1});
+    if(prog<1){x.fillStyle=cv('--ac');x.shadowColor=cv('--ac');x.shadowBlur=12;x.fillRect(lim,0,1.5,H-ax);x.shadowBlur=0}};
+  const rm=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(PZfirst&&!rm){PZfirst=false;const st=performance.now(),f=n=>{const p=Math.min(1,(n-st)/1100),e=1-Math.pow(1-p,3);draw(e);if(p<1)requestAnimationFrame(f)};requestAnimationFrame(f)}else{PZfirst=false;draw(1)}}
+$('pz').onmousemove=e=>{if(!PZ||!PZ.labs.length)return;const r=$('pz').getBoundingClientRect(),px=e.clientX-r.left,py=e.clientY-r.top,tip=$('ptip');
+  if(px<PZ.L||px>PZ.W-PZ.Rr||py>PZ.labs.length*PZ.rh+3){tip.style.display='none';return}
+  const dd=Math.floor((PZ.t0+(px-PZ.L)/(PZ.W-PZ.L-PZ.Rr)*(PZ.t1-PZ.t0)-PZ.t0)/864e5),k=PZ.labs[Math.min(PZ.labs.length-1,Math.floor((py-3)/PZ.rh))],v=PZ.day[k+'|'+dd],d=new Date(PZ.t0+dd*864e5);
+  const tgl=d.getUTCDate()+' '+BS[d.getUTCMonth()];
+  tip.innerHTML=`<b>${tgl}</b> <span class="mu">· ${LABS[k]}</span><br>`+(v?[['MS','ms'],['TMS','tms'],['PR','pr'],['NA','na']].filter(z=>v[z[0]]).map(z=>`<span style="color:var(--${z[1]})">${v[z[0]]} ${z[0]==='PR'?'proses':z[0]==='NA'?'belum diuji':z[0]}</span>`).join(', '):'<span class="mu">tidak ada sampel masuk</span>');
+  tip.style.display='block';tip.style.left=Math.min(innerWidth-200,e.clientX+14)+'px';tip.style.top=(e.clientY+14)+'px'};
+$('pz').onmouseleave=()=>$('ptip').style.display='none';
+$('pz').onclick=e=>{if(!PZ)return;const r=$('pz').getBoundingClientRect(),px=e.clientX-r.left;if(px<PZ.L)return;const t=PZ.t0+(px-PZ.L)/(PZ.W-PZ.L-PZ.Rr)*(PZ.t1-PZ.t0),mo=new Date(t).getUTCMonth()+1,v=C.year+'-'+String(mo).padStart(2,'0');
+  $('fB').value=[...$('fB').options].some(o=>o.value===v)&&$('fB').value!==v?v:'ALL';render()};
+let rzT;addEventListener('resize',()=>{clearTimeout(rzT);rzT=setTimeout(()=>{if(PZ)pulse($('fB').value,$('fM').value,$('fL').value)},150)});
+['fB','fM','fL','fA','tF'].forEach(i=>$(i).onchange=render);$('q').oninput=render;
+const sth=t=>{document.documentElement.dataset.theme=t;$('th').textContent=t==='dark'?'☀ Terang':'☾ Gelap';try{localStorage.setItem('th',t)}catch(e){}};
+try{sth(localStorage.getItem('th')||'dark')}catch(e){}
+$('th').onclick=()=>{sth(document.documentElement.dataset.theme==='dark'?'light':'dark');render()};
+fill();render();
+/* ===== Data langsung dari Google Sheets (lewat Apps Script); data.js jadi cadangan bila gagal ===== */
+async function muat(force){if(!API)return;const st=$('src'),rf=$('rf');st.textContent='Memuat data dari Google Sheets…';rf.disabled=true;
+  try{const j=await(await fetch(API+(API.includes('?')?'&':'?')+(force?'refresh=1&':'')+'t='+Date.now())).json();if(!j.records)throw new Error(j.error||'format tidak dikenal');
+    D.records=R=j.records;D.generated=j.generated;fill();render();$('dl').hidden=true;
+    st.textContent='Sumber: Google Sheets, diperbarui '+j.generated+(j.errors&&j.errors.length?'. '+j.errors.length+' file gagal dibaca: '+j.errors.join(' | '):'')}
+  catch(e){st.textContent='Google Sheets tidak terbaca ('+e.message+'). Menampilkan data tersimpan per '+(D.generated||'-')}
+  rf.disabled=false}
+$('rf').hidden=!API;$('rf').onclick=()=>muat(true);muat();if(API)setInterval(()=>muat(),3e5);
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>render());
+</script>
+</body>
+</html>
